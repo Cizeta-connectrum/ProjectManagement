@@ -169,7 +169,13 @@ async function notifyDiscord(label, analysisText) {
     `${analysisText}\n\n` +
     `_検知時刻: ${nowJst} (JST)_`;
 
-  const res = await fetch(DISCORD_WEBHOOK_URL, {
+  // wait=true を付けて、Discord側でメッセージ作成が完了するまで待つ。
+  // 付けない場合、送信リクエスト自体の受理だけで204が返るため、
+  // 実際の投稿に失敗していてもこちら側では気づけない。
+  const url = new URL(DISCORD_WEBHOOK_URL);
+  url.searchParams.set('wait', 'true');
+
+  const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
