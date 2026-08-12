@@ -65,8 +65,9 @@
 以下の2種類のデータをスプレッドシートに記録できます。Discord Webhookと同様、
 Google Cloudの複雑な認証設定は不要です。
 
-- **「価格データ」シート**: 24時間・毎回のチェックで取得した最新のOHLC（始値・高値・安値・終値）を記録。
-  直近40本という制限に関係なく、過去分がずっと蓄積されていきます（1日あたり約190行）
+- **「価格データ」シート**: 24時間・毎回のチェックで、直近40本のうち**最新2本（直近30分ぶん）だけ**を記録します。
+  40本すべてを毎回書き込むと前回と大きく重複してしまうため、この方式で少しずつ過去分を蓄積していきます
+  （30分おきの実行を続けることで、直近40本という制限に関係なく過去分がずっと積み上がっていきます。1日あたり約190行）
 - **「分析ログ」シート**: 日本時間9:00〜翌1:00の間、Claudeの判定結果（エントリー/見送り・方向・TP/SLなど）を記録
   （1日あたり約64行）
 
@@ -84,19 +85,24 @@ Google Cloudの複雑な認証設定は不要です。
        if (sheet.getLastRow() === 0) {
          sheet.appendRow(['日時', '銘柄', '始値', '高値', '安値', '終値']);
        }
+       // 日時列はスプレッドシートが自動で「日付」型に変換してしまうと、
+       // 下の重複チェック（文字列比較）が効かなくなるため、常に文字列として扱わせる。
+       sheet.getRange('A:A').setNumberFormat('@');
+
        // 直近の実行と重複するローソク足をスキップ（同じ日時・銘柄の行が既にあれば追加しない）
        var checkRows = Math.min(sheet.getLastRow() - 1, 20);
        if (checkRows > 0) {
          var recent = sheet.getRange(sheet.getLastRow() - checkRows + 1, 1, checkRows, 2).getValues();
          var isDuplicate = recent.some(function (row) {
-           return row[0] === data.datetime && row[1] === data.symbol;
+           return String(row[0]) === data.datetime && row[1] === data.symbol;
          });
          if (isDuplicate) {
            return ContentService.createTextOutput(JSON.stringify({ status: 'duplicate' }))
              .setMimeType(ContentService.MimeType.JSON);
          }
        }
-       sheet.appendRow([data.datetime, data.symbol, data.open, data.high, data.low, data.close]);
+       var newRow = sheet.getLastRow() + 1;
+       sheet.getRange(newRow, 1, 1, 6).setValues([[data.datetime, data.symbol, data.open, data.high, data.low, data.close]]);
      } else {
        var logSheet = ss.getSheetByName('分析ログ') || ss.insertSheet('分析ログ');
        if (logSheet.getLastRow() === 0) {
