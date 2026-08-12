@@ -5,6 +5,8 @@
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const TWELVEDATA_API_KEY = process.env.TWELVEDATA_API_KEY;
 const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL;
+// Optional: Google Apps Script Web App URL for logging every check to a spreadsheet.
+const SHEETS_WEBHOOK_URL = process.env.SHEETS_WEBHOOK_URL;
 
 const MODEL = 'claude-haiku-4-5';
 const INTERVAL = '15min';
@@ -96,6 +98,39 @@ async function analyze(label, candlesText) {
   return (data.content || []).map((b) => b.text || '').join('\n').trim();
 }
 
+function extractField(text, label) {
+  const re = new RegExp(`${label}[:：]\\s*(.+)`);
+  const m = text.match(re);
+  return m ? m[1].trim() : '';
+}
+
+function parseAnalysis(analysisText) {
+  return {
+    verdict: extractField(analysisText, '判定'),
+    direction: extractField(analysisText, '方向'),
+    entryRange: extractField(analysisText, 'エントリー価格帯'),
+    tp: extractField(analysisText, 'TP'),
+    sl: extractField(analysisText, 'SL'),
+    reason: extractField(analysisText, '根拠') || extractField(analysisText, '理由'),
+  };
+}
+
+async function logToSheet(row) {
+  if (!SHEETS_WEBHOOK_URL) return;
+  try {
+    const res = await fetch(SHEETS_WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(row),
+    });
+    if (!res.ok) {
+      console.error(`スプレッドシート記録エラー: ${res.status} ${await res.text()}`);
+    }
+  } catch (err) {
+    console.error('スプレッドシート記録エラー:', err.message || err);
+  }
+}
+
 async function notifyDiscord(label, analysisText) {
   const nowJst = new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
   const content =
@@ -121,7 +156,18 @@ async function checkSymbol({ label, symbol }) {
   const analysisText = await analyze(label, candlesToText(candles));
   console.log(analysisText);
 
-  const isEntry = /判定[:：]\s*エントリー/.test(analysisText);
+  const fields = parseAnalysis(analysisText);
+  const nowJst = new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
+  const lastClose = candles[candles.length - 1].close;
+
+  await logToSheet({
+    timestamp: nowJst,
+    symbol: label,
+    lastClose,
+    ...fields,
+  });
+
+  const isEntry = /^エントリー/.test(fields.verdict);
   if (isEntry) {
     await notifyDiscord(label, analysisText);
     console.log(`-> Discordに通知しました (${label})`);

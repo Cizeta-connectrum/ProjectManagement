@@ -53,3 +53,47 @@ BTC/USD と GOLD (XAU/USD) の直近の値動きをテキストデータで分�
 
 30分おき・日本時間9:00〜翌1:00（16時間）稼働、BTCUSD/GOLDの2銘柄で、Claude API利用料は
 おおよそ **月$7〜8（1,000円前後）** です（`claude-haiku-4-5` 使用時。価格データ取得・通知は無料）。
+
+### 全チェック履歴をGoogle Sheetsに記録する（任意）
+
+「エントリー/見送り」の判定含め、毎回のチェック結果をすべてスプレッドシートに記録できます
+（30分おき・16時間稼働で1日あたり約64行、7日で約450行程度）。Discord Webhookと同様、
+Google Cloudの複雑な認証設定は不要です。
+
+1. Google Sheetsで新しいスプレッドシートを作成する
+2. メニューの「拡張機能」→「Apps Script」を開く
+3. デフォルトのコードを全て削除し、以下を貼り付けて保存する
+
+   ```javascript
+   function doPost(e) {
+     var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+     if (sheet.getLastRow() === 0) {
+       sheet.appendRow(['日時', '銘柄', '直近終値', '判定', '方向', 'エントリー価格帯', 'TP', 'SL', '根拠/理由']);
+     }
+     var data = JSON.parse(e.postData.contents);
+     sheet.appendRow([
+       data.timestamp || '',
+       data.symbol || '',
+       data.lastClose || '',
+       data.verdict || '',
+       data.direction || '',
+       data.entryRange || '',
+       data.tp || '',
+       data.sl || '',
+       data.reason || ''
+     ]);
+     return ContentService.createTextOutput(JSON.stringify({ status: 'ok' }))
+       .setMimeType(ContentService.MimeType.JSON);
+   }
+   ```
+
+4. 右上の「デプロイ」→「新しいデプロイ」を選択
+5. 歯車アイコン（種類の選択）→「ウェブアプリ」を選ぶ
+6. 「実行ユーザー」は **自分**、「アクセスできるユーザー」は **全員** を選択して「デプロイ」
+7. 初回は権限承認を求められるので、自分のGoogleアカウントで許可する
+8. 発行された「ウェブアプリのURL」（`https://script.google.com/macros/s/.../exec` の形式）をコピー
+9. このリポジトリの Settings → Secrets and variables → Actions で
+   `SHEETS_WEBHOOK_URL` という名前でこのURLを登録する
+
+登録すると、次回の実行から自動的にスプレッドシートへの記録が始まります
+（未設定のままでも他の機能には影響ありません）。
