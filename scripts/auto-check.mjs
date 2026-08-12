@@ -165,14 +165,17 @@ async function logPriceData(label, candles) {
 async function notifyDiscord(label, analysisText) {
   const nowJst = new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
   const content =
-    `🔔 **${label}** でエントリーチャンスを検知しました\n\n` +
+    `@everyone 🔔 **${label}** でエントリーチャンスを検知しました\n\n` +
     `${analysisText}\n\n` +
     `_検知時刻: ${nowJst} (JST)_`;
 
   const res = await fetch(DISCORD_WEBHOOK_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ content }),
+    body: JSON.stringify({
+      content,
+      allowed_mentions: { parse: ['everyone'] },
+    }),
   });
 
   if (!res.ok) {
