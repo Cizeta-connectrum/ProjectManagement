@@ -192,6 +192,31 @@
     margin-top: 24px;
     line-height: 1.6;
   }
+
+  #reminderBox {
+    display: none;
+    margin-top: 18px;
+    padding: 14px;
+    border-radius: 8px;
+    border: 1px solid var(--warn);
+    background: rgba(255,180,84,0.1);
+  }
+  #reminderBox .title { font-weight: 600; margin-bottom: 8px; }
+  #reminderBox .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  #reminderBox input[type="number"] { width: 90px; }
+  #reminderStatus { margin-top: 10px; font-size: 0.85rem; color: var(--text-dim); }
+  #reminderBox.armed { border-color: var(--accent); background: rgba(79,140,255,0.08); }
+  #reminderBox.fired { border-color: var(--accent-2); background: rgba(47,206,143,0.12); }
+  #reminderBox.fired .title { color: var(--accent-2); }
+
+  @media (max-width: 480px) {
+    .wrap { padding: 16px 12px 60px; }
+    h1 { font-size: 1.2rem; }
+    .card { padding: 14px; }
+    button, input, select { font-size: 16px; }
+    .direction-group button { padding: 10px 6px; font-size: 0.85rem; }
+    #analyzeBtn { padding: 15px; }
+  }
 </style>
 </head>
 <body>
@@ -279,6 +304,18 @@
     <h2>分析結果</h2>
     <div class="meta" id="resultMeta"></div>
     <div id="resultBody"></div>
+
+    <div id="reminderBox">
+      <div class="title">🔔 見送り判定です。もう一度チェックする時間を設定できます</div>
+      <div class="controls">
+        <span>あと</span>
+        <input type="number" id="reminderMinutes" min="1" step="1" value="30">
+        <span>分後に通知</span>
+        <button id="setReminderBtn" class="primary">アラームをセット</button>
+        <button id="cancelReminderBtn" style="display:none;">キャンセル</button>
+      </div>
+      <div id="reminderStatus"></div>
+    </div>
   </div>
 
   <div class="disclaimer">
@@ -306,8 +343,14 @@
   const result = $('result');
   const resultMeta = $('resultMeta');
   const resultBody = $('resultBody');
+  const reminderBox = $('reminderBox');
+  const reminderMinutesInput = $('reminderMinutes');
+  const setReminderBtn = $('setReminderBtn');
+  const cancelReminderBtn = $('cancelReminderBtn');
+  const reminderStatus = $('reminderStatus');
 
   const STORAGE_KEY = 'chart-entry-analyzer.apiKey';
+  const REMINDER_KEY = 'chart-entry-analyzer.reminderTarget';
   const MODEL = 'claude-sonnet-5';
   const MAX_DIM = 1568;
 
@@ -315,6 +358,10 @@
   let imageMediaType = null;
   let positionStatus = 'none';
   let direction = null;
+
+  let reminderTimeoutId = null;
+  let reminderIntervalId = null;
+  let audioCtx = null;
 
   // --- API key persistence ---
   const savedKey = localStorage.getItem(STORAGE_KEY);
@@ -534,11 +581,18 @@
         '見送るべき場合は、その理由と、どのような条件が揃えばエントリー候補になるかを説明してください。\n';
     }
 
+    const verdictInstruction =
+      positionStatus === 'open'
+        ? '### 判断 の最初の行に、`判定: エントリー` と明記してください（保有中のため常にこの表記）。\n'
+        : '### 判断 の最初の行に、`判定: エントリー` または `判定: 見送り` のどちらかを必ず明記してください。\n' +
+          '見送りと判断した場合は、続く行に `推奨再チェック時間: XX分` の形式で、次にチャートを確認すべき目安の時間（分単位の整数、例: 30分、60分、120分など。時間足や値動きの速さから妥当な値を判断）を必ず明記してください。\n';
+
     const format =
       '\n## 出力フォーマット\n' +
       '日本語で、以下の見出し構成のMarkdownで回答してください。\n' +
       '### チャート状況\n' +
       '### 判断\n' +
+      verdictInstruction +
       '### 根拠\n' +
       '### 注意点・リスク\n' +
       '最後に「本分析は教育・参考目的であり投資助言ではありません」という趣旨の一文を必ず添えてください。';
@@ -551,7 +605,156 @@
     resultBody.innerHTML = renderMarkdown(markdown);
     result.style.display = 'block';
     result.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    const verdictMatch = markdown.match(/判定[:：]\s*(エントリー|見送り)/);
+    const isSkip = verdictMatch && verdictMatch[1] === '見送り';
+
+    resetReminderUI();
+    if (isSkip) {
+      const minutesMatch = markdown.match(/推奨再チェック時間[:：]\s*(\d+)\s*分/);
+      reminderMinutesInput.value = minutesMatch ? minutesMatch[1] : 30;
+      reminderBox.style.display = 'block';
+    } else {
+      reminderBox.style.display = 'none';
+    }
   }
+
+  // --- reminder / alarm ---
+  function ensureAudioCtx() {
+    if (!audioCtx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (AC) audioCtx = new AC();
+    }
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+    return audioCtx;
+  }
+
+  function playBeep() {
+    const ctx = ensureAudioCtx();
+    if (!ctx) return;
+    for (let i = 0; i < 3; i++) {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = 880;
+      const start = ctx.currentTime + i * 0.35;
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.exponentialRampToValueAtTime(0.3, start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.28);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(start);
+      osc.stop(start + 0.3);
+    }
+  }
+
+  function resetReminderUI() {
+    clearTimeout(reminderTimeoutId);
+    clearInterval(reminderIntervalId);
+    reminderTimeoutId = null;
+    reminderIntervalId = null;
+    reminderBox.classList.remove('armed', 'fired');
+    reminderStatus.textContent = '';
+    setReminderBtn.style.display = 'inline-block';
+    cancelReminderBtn.style.display = 'none';
+    reminderMinutesInput.disabled = false;
+  }
+
+  function armReminder(targetTime) {
+    ensureAudioCtx(); // create/resume within this user gesture so later playback is allowed
+    localStorage.setItem(REMINDER_KEY, String(targetTime));
+    reminderBox.classList.add('armed');
+    reminderBox.classList.remove('fired');
+    setReminderBtn.style.display = 'none';
+    cancelReminderBtn.style.display = 'inline-block';
+    reminderMinutesInput.disabled = true;
+
+    if (window.Notification && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+
+    const tick = () => {
+      const remainingMs = targetTime - Date.now();
+      if (remainingMs <= 0) {
+        fireReminder();
+        return;
+      }
+      const totalSec = Math.ceil(remainingMs / 1000);
+      const mm = String(Math.floor(totalSec / 60)).padStart(2, '0');
+      const ss = String(totalSec % 60).padStart(2, '0');
+      reminderStatus.textContent = `次回チェックまで: ${mm}:${ss}`;
+    };
+    tick();
+    reminderIntervalId = setInterval(tick, 1000);
+
+    const delay = Math.max(0, targetTime - Date.now());
+    reminderTimeoutId = setTimeout(fireReminder, delay);
+  }
+
+  function fireReminder() {
+    clearTimeout(reminderTimeoutId);
+    clearInterval(reminderIntervalId);
+    reminderTimeoutId = null;
+    reminderIntervalId = null;
+    localStorage.removeItem(REMINDER_KEY);
+
+    reminderBox.classList.remove('armed');
+    reminderBox.classList.add('fired');
+    reminderStatus.textContent = '';
+    reminderBox.querySelector('.title').textContent =
+      '🔔 再チェックの時間です！新しいスクリーンショットを撮って「分析する」を押してください。';
+    setReminderBtn.style.display = 'inline-block';
+    setReminderBtn.textContent = 'もう一度アラームをセット';
+    cancelReminderBtn.style.display = 'none';
+    reminderMinutesInput.disabled = false;
+
+    playBeep();
+    if (window.Notification && Notification.permission === 'granted') {
+      try {
+        new Notification('チャート再チェックの時間です', {
+          body: '新しいスクリーンショットを撮って、もう一度分析しましょう。',
+        });
+      } catch (_) {}
+    }
+    const originalTitle = document.title;
+    document.title = '🔔 再チェックの時間です - ' + originalTitle;
+  }
+
+  setReminderBtn.addEventListener('click', () => {
+    if (setReminderBtn.textContent === 'もう一度アラームをセット') {
+      resetReminderUI();
+      reminderBox.querySelector('.title').textContent =
+        '🔔 見送り判定です。もう一度チェックする時間を設定できます';
+      return;
+    }
+    const minutes = parseInt(reminderMinutesInput.value, 10);
+    if (!minutes || minutes <= 0) {
+      showError('通知までの時間（分）を正しく入力してください。');
+      return;
+    }
+    armReminder(Date.now() + minutes * 60000);
+  });
+
+  cancelReminderBtn.addEventListener('click', resetReminderUI);
+
+  // resume a reminder that was armed before a page reload
+  (function resumeReminder() {
+    const saved = localStorage.getItem(REMINDER_KEY);
+    if (!saved) return;
+    const target = parseInt(saved, 10);
+    if (!target || Date.now() - target > 24 * 60 * 60 * 1000) {
+      localStorage.removeItem(REMINDER_KEY);
+      return;
+    }
+    reminderBox.style.display = 'block';
+    result.style.display = 'block';
+    if (Date.now() >= target) {
+      fireReminder();
+    } else {
+      const minutes = Math.max(1, Math.round((target - Date.now()) / 60000));
+      reminderMinutesInput.value = minutes;
+      armReminder(target);
+    }
+  })();
 
   // Minimal, dependency-free markdown renderer for headers/bold/lists/paragraphs.
   function renderMarkdown(md) {
