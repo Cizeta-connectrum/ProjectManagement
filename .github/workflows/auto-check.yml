@@ -1,0 +1,25 @@
+name: Auto Market Check
+
+on:
+  schedule:
+    # 30分おき、UTC 0:00-15:30 (= 日本時間 9:00〜翌1:00) のみ実行。
+    # 日本時間 1:00〜9:00 (取引しない時間帯) はスケジュール自体が発火しない。
+    - cron: '0,30 0-15 * * *'
+  workflow_dispatch: {}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run market check
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TWELVEDATA_API_KEY: ${{ secrets.TWELVEDATA_API_KEY }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: node scripts/auto-check.mjs
