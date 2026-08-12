@@ -28,11 +28,14 @@
 
 ## 自動監視（BTCUSD / GOLD）
 
-`index.html` の手動分析とは別に、`scripts/auto-check.mjs` が GitHub Actions で30分おきに自動実行され、
-BTC/USD と GOLD (XAU/USD) の直近の値動きをテキストデータで分析します。「エントリーチャンスあり」と
-判定されたときだけ Discord に通知します（見送りのときは通知しません）。
+`index.html` の手動分析とは別に、`scripts/auto-check.mjs` が GitHub Actions で **24時間・30分おき** に
+自動実行されます。
 
-- 実行時間帯: 日本時間 9:00〜翌1:00 のみ（1:00〜9:00は取引しないため実行自体をスキップ）
+- **価格データの記録**: 24時間・毎回実行。BTC/USD と GOLD (XAU/USD) の最新価格(OHLC)を取得し、
+  スプレッドシートに記録し続けます（直近40本だけでなく、過去分もずっと蓄積されます）
+- **AI分析・Discord通知**: 日本時間 **9:00〜翌1:00のみ** 実行。取引しない1:00〜9:00の間は
+  価格データの記録だけ行い、Claudeへの分析リクエストとDiscord通知はスキップします（コスト・通知の無駄を防ぐため）
+- 「エントリーチャンスあり」と判定されたときだけ Discord に通知します（見送りのときは通知しません）
 - 使用モデル: `claude-haiku-4-5`（コスト抑制のため。手動分析の `index.html` は精度重視で `claude-sonnet-5` を使用）
 - 価格データ取得元: [Twelve Data](https://twelvedata.com/)（無料プランの範囲内で収まります）
 
@@ -51,14 +54,21 @@ BTC/USD と GOLD (XAU/USD) の直近の値動きをテキストデータで分�
 
 ### コストの目安
 
-30分おき・日本時間9:00〜翌1:00（16時間）稼働、BTCUSD/GOLDの2銘柄で、Claude API利用料は
-おおよそ **月$7〜8（1,000円前後）** です（`claude-haiku-4-5` 使用時。価格データ取得・通知は無料）。
+- **Claude API**: 分析(Haiku 4.5)は日本時間9:00〜翌1:00（16時間）のみ実行するため、
+  おおよそ **月$7〜8（1,000円前後）**（変更なし）
+- **GitHub Actions**: 24時間・30分おき（1日48回）に増えますが、1回あたり約15〜20秒のため
+  月あたり合計10〜16分程度。無料枠（プライベートリポジトリで月2,000分）に十分収まります
+- **Twelve Data / Discord / Google Sheets**: いずれも無料枠の範囲内
 
-### 全チェック履歴をGoogle Sheetsに記録する（任意）
+### 価格データ・分析結果をGoogle Sheetsに記録する（任意）
 
-「エントリー/見送り」の判定含め、毎回のチェック結果をすべてスプレッドシートに記録できます
-（30分おき・16時間稼働で1日あたり約64行、7日で約450行程度）。Discord Webhookと同様、
+以下の2種類のデータをスプレッドシートに記録できます。Discord Webhookと同様、
 Google Cloudの複雑な認証設定は不要です。
+
+- **「価格データ」シート**: 24時間・毎回のチェックで取得した最新のOHLC（始値・高値・安値・終値）を記録。
+  直近40本という制限に関係なく、過去分がずっと蓄積されていきます（1日あたり約190行）
+- **「分析ログ」シート**: 日本時間9:00〜翌1:00の間、Claudeの判定結果（エントリー/見送り・方向・TP/SLなど）を記録
+  （1日あたり約64行）
 
 1. Google Sheetsで新しいスプレッドシートを作成する
 2. メニューの「拡張機能」→「Apps Script」を開く
@@ -66,22 +76,45 @@ Google Cloudの複雑な認証設定は不要です。
 
    ```javascript
    function doPost(e) {
-     var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
-     if (sheet.getLastRow() === 0) {
-       sheet.appendRow(['日時', '銘柄', '直近終値', '判定', '方向', 'エントリー価格帯', 'TP', 'SL', '根拠/理由']);
-     }
      var data = JSON.parse(e.postData.contents);
-     sheet.appendRow([
-       data.timestamp || '',
-       data.symbol || '',
-       data.lastClose || '',
-       data.verdict || '',
-       data.direction || '',
-       data.entryRange || '',
-       data.tp || '',
-       data.sl || '',
-       data.reason || ''
-     ]);
+     var ss = SpreadsheetApp.getActiveSpreadsheet();
+
+     if (data.type === 'price') {
+       var sheet = ss.getSheetByName('価格データ') || ss.insertSheet('価格データ');
+       if (sheet.getLastRow() === 0) {
+         sheet.appendRow(['日時', '銘柄', '始値', '高値', '安値', '終値']);
+       }
+       // 直近の実行と重複するローソク足をスキップ（同じ日時・銘柄の行が既にあれば追加しない）
+       var checkRows = Math.min(sheet.getLastRow() - 1, 20);
+       if (checkRows > 0) {
+         var recent = sheet.getRange(sheet.getLastRow() - checkRows + 1, 1, checkRows, 2).getValues();
+         var isDuplicate = recent.some(function (row) {
+           return row[0] === data.datetime && row[1] === data.symbol;
+         });
+         if (isDuplicate) {
+           return ContentService.createTextOutput(JSON.stringify({ status: 'duplicate' }))
+             .setMimeType(ContentService.MimeType.JSON);
+         }
+       }
+       sheet.appendRow([data.datetime, data.symbol, data.open, data.high, data.low, data.close]);
+     } else {
+       var logSheet = ss.getSheetByName('分析ログ') || ss.insertSheet('分析ログ');
+       if (logSheet.getLastRow() === 0) {
+         logSheet.appendRow(['日時', '銘柄', '直近終値', '判定', '方向', 'エントリー価格帯', 'TP', 'SL', '根拠/理由']);
+       }
+       logSheet.appendRow([
+         data.timestamp || '',
+         data.symbol || '',
+         data.lastClose || '',
+         data.verdict || '',
+         data.direction || '',
+         data.entryRange || '',
+         data.tp || '',
+         data.sl || '',
+         data.reason || ''
+       ]);
+     }
+
      return ContentService.createTextOutput(JSON.stringify({ status: 'ok' }))
        .setMimeType(ContentService.MimeType.JSON);
    }
@@ -96,4 +129,6 @@ Google Cloudの複雑な認証設定は不要です。
    `SHEETS_WEBHOOK_URL` という名前でこのURLを登録する
 
 登録すると、次回の実行から自動的にスプレッドシートへの記録が始まります
-（未設定のままでも他の機能には影響ありません）。
+（未設定のままでも他の機能には影響ありません）。既にこの機能を使っていて古いバージョンの
+Apps Scriptコードを貼り付け済みの場合は、上記の新しいコードで置き換えて再デプロイしてください
+（デプロイ済みのWebアプリURLは変わりません）。

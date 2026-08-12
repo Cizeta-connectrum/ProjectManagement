@@ -1,6 +1,10 @@
-// Scheduled market check: fetches recent OHLC data, asks Claude (Haiku 4.5)
-// whether there's an entry chance, and posts to Discord only when there is.
-// Runs via .github/workflows/auto-check.yml (GitHub Actions cron).
+// Scheduled market check, runs every 30 minutes via GitHub Actions (24 hours a day):
+//   - Always fetches the latest OHLC price data and logs it to a spreadsheet
+//     (free, no API cost) so price history keeps accumulating beyond the
+//     40-candle window Claude sees on any single call.
+//   - Only during JST 9:00-next day 1:00 (trading hours) does it also ask
+//     Claude (Haiku 4.5) whether there's an entry chance, log that verdict,
+//     and notify Discord when the verdict is an entry.
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const TWELVEDATA_API_KEY = process.env.TWELVEDATA_API_KEY;
@@ -16,6 +20,14 @@ const SYMBOLS = [
   { label: 'BTC/USD', symbol: 'BTC/USD' },
   { label: 'GOLD (XAU/USD)', symbol: 'XAU/USD' },
 ];
+
+// Trading hours: JST 9:00 - next day 1:00 == UTC 0:00-15:59.
+// Outside this window we still log price data, but skip the Claude call
+// and Discord notification (no trading happening, no need to spend on it).
+function isTradingHours(date = new Date()) {
+  const utcHour = date.getUTCHours();
+  return utcHour >= 0 && utcHour <= 15;
+}
 
 function requireEnv() {
   const missing = [];
@@ -131,6 +143,25 @@ async function logToSheet(row) {
   }
 }
 
+// Log the newest candles (chronological order) as raw price rows.
+// We log the latest 2 (30 min / 15min interval = 2 new candles per run);
+// the Apps Script side dedupes by (symbol, datetime) so occasional overlap
+// or a missed run doesn't create duplicate/gappy rows.
+async function logPriceData(label, candles) {
+  const newest = candles.slice(-2);
+  for (const c of newest) {
+    await logToSheet({
+      type: 'price',
+      datetime: c.datetime,
+      symbol: label,
+      open: c.open,
+      high: c.high,
+      low: c.low,
+      close: c.close,
+    });
+  }
+}
+
 async function notifyDiscord(label, analysisText) {
   const nowJst = new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
   const content =
@@ -153,6 +184,15 @@ async function notifyDiscord(label, analysisText) {
 async function checkSymbol({ label, symbol }) {
   console.log(`--- ${label} ---`);
   const candles = await fetchCandles(symbol);
+
+  // Always accumulate raw price history, 24 hours a day (free, no Claude call).
+  await logPriceData(label, candles);
+
+  if (!isTradingHours()) {
+    console.log(`-> 取引時間外(1:00-9:00 JST)のため価格データのみ記録し、分析はスキップ (${label})`);
+    return;
+  }
+
   const analysisText = await analyze(label, candlesToText(candles));
   console.log(analysisText);
 
@@ -161,6 +201,7 @@ async function checkSymbol({ label, symbol }) {
   const lastClose = candles[candles.length - 1].close;
 
   await logToSheet({
+    type: 'analysis',
     timestamp: nowJst,
     symbol: label,
     lastClose,
