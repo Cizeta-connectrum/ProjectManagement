@@ -127,19 +127,37 @@ function parseAnalysis(analysisText) {
   };
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function postToSheet(row) {
+  const res = await fetch(SHEETS_WEBHOOK_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(row),
+  });
+  if (!res.ok) {
+    throw new Error(`${res.status} ${await res.text()}`);
+  }
+}
+
+// Apps Script の web app はまれに一時的な404/エラーを返すことがあるため、
+// 1回だけ間隔を空けてリトライしてから諦める。
 async function logToSheet(row) {
   if (!SHEETS_WEBHOOK_URL) return;
-  try {
-    const res = await fetch(SHEETS_WEBHOOK_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(row),
-    });
-    if (!res.ok) {
-      console.error(`スプレッドシート記録エラー: ${res.status} ${await res.text()}`);
+  const maxAttempts = 2;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      await postToSheet(row);
+      return;
+    } catch (err) {
+      if (attempt === maxAttempts) {
+        console.error('スプレッドシート記録エラー:', err.message || err);
+      } else {
+        await sleep(2000);
+      }
     }
-  } catch (err) {
-    console.error('スプレッドシート記録エラー:', err.message || err);
   }
 }
 
