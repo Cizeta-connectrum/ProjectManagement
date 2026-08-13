@@ -156,6 +156,10 @@ Google Cloudの複雑な認証設定は不要です。
 8. 発行された「ウェブアプリのURL」（`https://script.google.com/macros/s/.../exec` の形式）をコピー
 9. このリポジトリの Settings → Secrets and variables → Actions で
    `SHEETS_WEBHOOK_URL` という名前でこのURLを登録する
+10. あわせて、スプレッドシート自体のURL（ブラウザのアドレスバーに表示されている
+    `https://docs.google.com/spreadsheets/d/.../edit` の形式）をコピーし、
+    `SPREADSHEET_URL` という名前で登録する（任意）。登録すると、Discordのエントリー通知・
+    ポジション解決通知に毎回スプレッドシートへのリンクが添えられ、確認しに行きやすくなります
 
 登録すると、次回の実行から自動的にスプレッドシートへの記録が始まります
 （未設定のままでも他の機能には影響ありません）。既にこの機能を使っていて古いバージョンの

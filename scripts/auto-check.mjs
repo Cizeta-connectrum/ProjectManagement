@@ -21,6 +21,8 @@ const TWELVEDATA_API_KEY = process.env.TWELVEDATA_API_KEY;
 const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL;
 // Optional: Google Apps Script Web App URL for logging every check to a spreadsheet.
 const SHEETS_WEBHOOK_URL = process.env.SHEETS_WEBHOOK_URL;
+// Optional: link to the Google Sheets spreadsheet itself, included in Discord notifications.
+const SPREADSHEET_URL = process.env.SPREADSHEET_URL;
 
 const MODEL = 'claude-haiku-4-5';
 const INTERVAL = '15min';
@@ -258,11 +260,16 @@ async function postDiscordMessage(content) {
   }
 }
 
+function spreadsheetLine() {
+  return SPREADSHEET_URL ? `📊 スプレッドシート: ${SPREADSHEET_URL}\n\n` : '';
+}
+
 async function notifyEntry(label, analysisText) {
   const nowJst = new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
   await postDiscordMessage(
     `@everyone 🔔 **${label}** でエントリーチャンスを検知しました\n\n` +
       `${analysisText}\n\n` +
+      spreadsheetLine() +
       `_検知時刻: ${nowJst} (JST)_`
   );
 }
@@ -273,6 +280,7 @@ async function notifyResolution(label, verdict, comment, lastClose) {
   await postDiscordMessage(
     `@everyone ${emoji} **${label}** ポジション追跡終了: ${verdict}\n\n` +
       `現在値: ${lastClose}\n${comment}\n\n` +
+      spreadsheetLine() +
       `_検知時刻: ${nowJst} (JST)_`
   );
 }
