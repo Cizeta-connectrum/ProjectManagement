@@ -147,6 +147,9 @@ async function fetchCandles(symbol) {
   url.searchParams.set('outputsize', String(CANDLE_COUNT));
   url.searchParams.set('apikey', TWELVEDATA_API_KEY);
   url.searchParams.set('format', 'JSON');
+  // 指定しないと銘柄の取引所現地時間で返ってくる(銘柄ごとにタイムゾーンが
+  // 異なる)。JSTに統一し、Claudeへの分析データも日本時間で一貫させる。
+  url.searchParams.set('timezone', 'Asia/Tokyo');
 
   const res = await fetch(url);
   const data = await res.json();
@@ -161,7 +164,7 @@ async function fetchCandles(symbol) {
 }
 
 function candlesToText(candles) {
-  const header = '日時 | 始値 | 高値 | 安値 | 終値';
+  const header = '日時(JST) | 始値 | 高値 | 安値 | 終値';
   const rows = candles.map(
     (c) => `${c.datetime} | ${c.open} | ${c.high} | ${c.low} | ${c.close}`
   );
@@ -171,7 +174,7 @@ function candlesToText(candles) {
 function buildEntryPrompt(label, candlesText) {
   return (
     `あなたは経験豊富なテクニカルアナリスト兼トレーダーです。\n` +
-    `以下は「${label}」の直近の価格データ（${INTERVAL}足、時系列は古い→新しい順）です。\n\n` +
+    `以下は「${label}」の直近の価格データ（${INTERVAL}足、日本時間(JST)、時系列は古い→新しい順）です。\n\n` +
     `${candlesText}\n\n` +
     `このデータをもとに、現時点でエントリーすべきチャンスがあるかどうかを判断してください。\n` +
     `トレンド、直近の高値・安値（サポート・レジスタンス）、値動きの勢いを踏まえて判断してください。\n\n` +
@@ -197,7 +200,7 @@ function buildMonitorPrompt(label, position, candlesText) {
     `TP: ${position.tp}\n` +
     `SL: ${position.sl}\n` +
     `エントリー根拠: ${position.reason}\n\n` +
-    `直近の価格データ（${INTERVAL}足、時系列は古い→新しい順）:\n${candlesText}\n\n` +
+    `直近の価格データ（${INTERVAL}足、日本時間(JST)、時系列は古い→新しい順）:\n${candlesText}\n\n` +
     `現時点でこのポジションをどう扱うべきか判断してください。\n\n` +
     `## 出力フォーマット\n` +
     `日本語で、以下の形式のみで簡潔に回答してください（全体で200字程度、余計な前置きは不要）。\n` +
