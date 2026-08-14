@@ -15,6 +15,10 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
+    # ポジション保有中はスクリプト自身が5分おきにループして監視を続けるため、
+    # そのぶんジョブが長時間実行され続ける。スクリプト側の安全上限(300分)より
+    # 手前でGitHubのデフォルト上限(360分)に達しないよう余裕を持って設定する。
+    timeout-minutes: 330
     concurrency:
       group: auto-check
       cancel-in-progress: false

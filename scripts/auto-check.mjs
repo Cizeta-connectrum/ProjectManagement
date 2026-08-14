@@ -1,20 +1,31 @@
-// Scheduled market check, runs every 5 minutes via GitHub Actions (24 hours a day).
+// Scheduled market check, triggered via GitHub Actions (nominally every 5 minutes,
+// though GitHub's cron scheduler does not honor that interval reliably — actual
+// firings can be delayed by an hour or more under load).
 //
 // Two speeds of monitoring ("濃淡"):
-//   - No open position: normal cadence. On the :00/:30 tick, fetch price data,
-//     log it (24h, free), and — during JST 9:00-next day 1:00 trading hours —
-//     ask Claude (Haiku 4.5) for an entry verdict and notify Discord on entry.
-//     Off-tick runs and outside trading hours are skipped entirely (cheap).
-//   - Open position (an entry verdict happened): tight cadence. Every 5 minutes,
-//     ask Claude to judge the position (hold / TP hit / SL hit / bail out) using
-//     the entry context + recent price, log it, and on resolution notify Discord
-//     and drop back to normal cadence.
+//   - No open position: normal cadence, gated by elapsed time (not wall-clock
+//     minute) since GitHub's firings drift. Roughly every ~25+ minutes, fetch
+//     price data, log it (24h, free), and — during JST 9:00-next day 1:00
+//     trading hours — ask Claude (Haiku 4.5) for an entry verdict and notify
+//     Discord on entry.
+//   - Open position (an entry verdict happened): tight cadence that must not
+//     depend on GitHub's unreliable scheduler, so the process itself loops
+//     internally every 5 real minutes (via setTimeout) for as long as a
+//     position stays open, asking Claude to judge it (hold / TP hit / SL hit /
+//     bail out) using the entry context + recent price. On resolution it
+//     notifies Discord and the loop keeps going for any other open positions,
+//     exiting once none remain (or after a safety time cap, handing off to
+//     the next scheduled firing).
 //
-// Open positions persist across runs as data/open-positions.json, committed
-// back to the repo by the workflow (GitHub Actions runners are ephemeral).
+// Open positions and last-tick state persist across runs as data/open-positions.json
+// and data/state.json. Since GitHub Actions runners are ephemeral, the script commits
+// and pushes these itself after every change (see commitState()) rather than relying
+// solely on a separate workflow step — important because a run can now stay alive for
+// hours inside the monitoring loop, and we don't want a mid-run failure to lose state.
 
 import { readFile, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
+import { execFileSync } from 'node:child_process';
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const TWELVEDATA_API_KEY = process.env.TWELVEDATA_API_KEY;
@@ -42,6 +53,14 @@ const STATE_FILE = fileURLToPath(new URL('../data/state.json', import.meta.url))
 // 判定にすると、ずれた瞬間に本チェックの条件を満たせず永久にスキップされて
 // しまうため、「前回の本チェックからどれだけ経過したか」で判定する。
 const MAIN_TICK_INTERVAL_MS = 25 * 60 * 1000;
+
+// ポジション保有中の集中監視ループの設定。実際の間隔はこのプロセス自身の
+// setTimeoutで作るため、GitHub Actionsのcron精度に依存しない。
+const MONITOR_INTERVAL_MS = 5 * 60 * 1000;
+// GitHub Actionsのジョブには上限(デフォルト360分)があるため、それより
+// 手前で安全に終了する。時間切れの場合、ポジションは保有中のまま残り、
+// 次にジョブが起動したタイミングで監視を再開する。
+const MAX_LOOP_MS = 300 * 60 * 1000;
 
 // Trading hours: JST 9:00 - next day 1:00 == UTC 0:00-15:59.
 // Outside this window we still log price data, but skip the Claude call
@@ -92,6 +111,33 @@ async function loadOpenPositions() {
 
 async function saveOpenPositions(positions) {
   await writeFile(POSITIONS_FILE, `${JSON.stringify(positions, null, 2)}\n`, 'utf8');
+}
+
+// 状態ファイルの変更をリポジトリにコミット・プッシュする。監視ループが
+// 数時間続くこともあるため、最後にまとめてではなく、状態が変わるたびに
+// その場でコミットする(途中でジョブが落ちても進捗を失わないため)。
+// ローカル実行(GitHub Actions外)では誤ってpushしないようスキップする。
+function commitState() {
+  if (process.env.GITHUB_ACTIONS !== 'true') {
+    console.log('(ローカル実行のため状態のコミットはスキップします)');
+    return;
+  }
+  try {
+    const status = execFileSync(
+      'git',
+      ['status', '--porcelain', '--', 'data/open-positions.json', 'data/state.json'],
+      { encoding: 'utf8' }
+    );
+    if (!status.trim()) return;
+    execFileSync('git', ['config', 'user.name', 'github-actions[bot]']);
+    execFileSync('git', ['config', 'user.email', 'github-actions[bot]@users.noreply.github.com']);
+    execFileSync('git', ['add', 'data/open-positions.json', 'data/state.json']);
+    execFileSync('git', ['commit', '-m', 'chore: update run state [skip ci]']);
+    execFileSync('git', ['push']);
+    console.log('状態をコミットしました');
+  } catch (err) {
+    console.error('状態のコミットに失敗しました:', err.message || err);
+  }
 }
 
 async function fetchCandles(symbol) {
@@ -385,13 +431,13 @@ async function monitorPosition(label, symbol, position) {
   return resolved;
 }
 
-async function main() {
-  requireEnv();
+// 1回ぶんのチェックを行う。ポジション保有中の銘柄は毎回monitorPosition、
+// 未保有の銘柄は前回の本チェックから十分な時間が経っていればcheckSymbol。
+// state/positionsは呼び出し側が保持する参照をその場で書き換える。
+async function runOnce(state, positions) {
   const now = new Date();
-  const state = await loadState();
   const mainTick = isMainTick(state, now);
-  const positions = await loadOpenPositions();
-  let positionsChanged = false;
+  let changed = false;
   let hadError = false;
 
   for (const s of SYMBOLS) {
@@ -401,13 +447,13 @@ async function main() {
         const resolved = await monitorPosition(s.label, s.symbol, openPosition);
         if (resolved) {
           delete positions[s.label];
-          positionsChanged = true;
+          changed = true;
         }
       } else if (mainTick) {
         const newPosition = await checkSymbol(s);
         if (newPosition) {
           positions[s.label] = newPosition;
-          positionsChanged = true;
+          changed = true;
         }
       } else {
         console.log(`--- ${s.label} ---\n-> ポジションなし・前回のチェックからまだ間もないためスキップ`);
@@ -420,14 +466,42 @@ async function main() {
 
   if (mainTick) {
     state.lastMainTick = now.toISOString();
-    await saveState(state);
+    changed = true;
   }
 
-  if (positionsChanged) {
-    await saveOpenPositions(positions);
+  return { changed, hadError };
+}
+
+async function main() {
+  requireEnv();
+  const state = await loadState();
+  const positions = await loadOpenPositions();
+  let hadAnyError = false;
+  const loopStart = Date.now();
+
+  for (;;) {
+    const { changed, hadError } = await runOnce(state, positions);
+    if (hadError) hadAnyError = true;
+
+    if (changed) {
+      await saveState(state);
+      await saveOpenPositions(positions);
+      commitState();
+    }
+
+    if (Object.keys(positions).length === 0) {
+      break;
+    }
+    if (Date.now() - loopStart >= MAX_LOOP_MS) {
+      console.log('監視ループの上限時間に達したため終了します(ポジションは保有中のまま次回のジョブに引き継ぎます)');
+      break;
+    }
+
+    console.log(`-> ポジション保有中のため${MONITOR_INTERVAL_MS / 60000}分後に再チェックします`);
+    await sleep(MONITOR_INTERVAL_MS);
   }
 
-  if (hadError) process.exitCode = 1;
+  if (hadAnyError) process.exitCode = 1;
 }
 
 main();
