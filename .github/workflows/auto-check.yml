@@ -35,6 +35,7 @@ jobs:
         run: node scripts/auto-check.mjs
 
       - name: Commit updated position state
+        if: always()
         run: |
           if ! git diff --quiet -- data/open-positions.json data/state.json; then
             git config user.name "github-actions[bot]"
