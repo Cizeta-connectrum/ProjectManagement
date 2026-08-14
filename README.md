@@ -91,19 +91,60 @@ Google Cloudの複雑な認証設定は不要です。
 - **「価格データ」シート**: 30分おきのチェックで、直近40本のうち**最新2本（直近30分ぶん）だけ**を記録します。
   40本すべてを毎回書き込むと前回と大きく重複してしまうため、この方式で少しずつ過去分を蓄積していきます
   （30分おきの実行を続けることで、直近40本という制限に関係なく過去分がずっと積み上がっていきます。1日あたり約190行）
-- **「分析ログ」シート**: 日本時間9:00〜翌1:00の間、Claudeの判定結果（エントリー/見送り・方向・TP/SLなど）を記録
-  （1日あたり約64行）
+- **「分析ログ」シート**: 日本時間9:00〜翌1:00の間、Claudeの判定結果（エントリー/見送り・方向・おすすめ度・TP/SLなど）を記録
+  （1日あたり約64行）。エントリー判定のときは、セットアップの良さをClaudeが5段階（1〜5）で自己評価した
+  「おすすめ度」も記録されます
 - **「ポジション追跡ログ」シート**: エントリー判定が出たポジションについて、解決するまで5分おきの状況判断
   （保有継続/TP到達/SL到達/撤退推奨とそのコメント）を記録します（行数はポジション保有時間に応じて変動します）
+- **「勝率」シート**: 「ポジション追跡ログ」の集計から、銘柄別のTP到達/SL到達/撤退推奨件数と勝率（TP到達÷
+  (TP到達+SL到達)）を自動計算する数式が入ります。エントリー通知・ポジション解決通知にも、その時点の勝率が
+  自動的に添えられます
 
 1. Google Sheetsで新しいスプレッドシートを作成する
 2. メニューの「拡張機能」→「Apps Script」を開く
 3. デフォルトのコードを全て削除し、以下を貼り付けて保存する
 
    ```javascript
+   function ensureWinRateSheet(ss) {
+     if (ss.getSheetByName('勝率')) return;
+     var sheet = ss.insertSheet('勝率');
+     sheet.appendRow(['銘柄', 'TP到達', 'SL到達', '撤退推奨', '勝率']);
+     var symbols = ['BTC/USD', 'GOLD (XAU/USD)'];
+     symbols.forEach(function (symbol, i) {
+       var row = i + 2;
+       sheet.getRange(row, 1).setValue(symbol);
+       sheet.getRange(row, 2).setFormula('=COUNTIFS(ポジション追跡ログ!B:B,A' + row + ',ポジション追跡ログ!D:D,"TP到達")');
+       sheet.getRange(row, 3).setFormula('=COUNTIFS(ポジション追跡ログ!B:B,A' + row + ',ポジション追跡ログ!D:D,"SL到達")');
+       sheet.getRange(row, 4).setFormula('=COUNTIFS(ポジション追跡ログ!B:B,A' + row + ',ポジション追跡ログ!D:D,"撤退推奨")');
+       sheet.getRange(row, 5).setFormula('=IF((B' + row + '+C' + row + ')=0,"-",TEXT(B' + row + '/(B' + row + '+C' + row + '),"0%"))');
+     });
+   }
+
+   // Discordへの通知に載せる勝率をNode側から取得するためのGETエンドポイント。
+   // 例: <ウェブアプリURL>?symbol=BTC/USD
+   function doGet(e) {
+     var symbol = e.parameter.symbol;
+     var ss = SpreadsheetApp.getActiveSpreadsheet();
+     var sheet = ss.getSheetByName('ポジション追跡ログ');
+     var result = { tp: 0, sl: 0, bail: 0 };
+     if (sheet && symbol) {
+       var data = sheet.getDataRange().getValues();
+       for (var i = 1; i < data.length; i++) {
+         if (data[i][1] === symbol) {
+           if (data[i][3] === 'TP到達') result.tp++;
+           else if (data[i][3] === 'SL到達') result.sl++;
+           else if (data[i][3] === '撤退推奨') result.bail++;
+         }
+       }
+     }
+     return ContentService.createTextOutput(JSON.stringify(result))
+       .setMimeType(ContentService.MimeType.JSON);
+   }
+
    function doPost(e) {
      var data = JSON.parse(e.postData.contents);
      var ss = SpreadsheetApp.getActiveSpreadsheet();
+     ensureWinRateSheet(ss);
 
      if (data.type === 'price') {
        var sheet = ss.getSheetByName('価格データ') || ss.insertSheet('価格データ');
@@ -143,7 +184,7 @@ Google Cloudの複雑な認証設定は不要です。
      } else {
        var logSheet = ss.getSheetByName('分析ログ') || ss.insertSheet('分析ログ');
        if (logSheet.getLastRow() === 0) {
-         logSheet.appendRow(['日時', '銘柄', '直近終値', '判定', '方向', 'エントリー価格帯', 'TP', 'SL', '根拠/理由']);
+         logSheet.appendRow(['日時', '銘柄', '直近終値', '判定', '方向', 'おすすめ度', 'エントリー価格帯', 'TP', 'SL', '根拠/理由']);
        }
        logSheet.appendRow([
          data.timestamp || '',
@@ -151,6 +192,7 @@ Google Cloudの複雑な認証設定は不要です。
          data.lastClose || '',
          data.verdict || '',
          data.direction || '',
+         data.confidence || '',
          data.entryRange || '',
          data.tp || '',
          data.sl || '',

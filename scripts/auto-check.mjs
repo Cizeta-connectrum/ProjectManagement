@@ -184,7 +184,8 @@ function buildEntryPrompt(label, candlesText) {
     `## 出力フォーマット\n` +
     `日本語で、以下の形式のみで簡潔に回答してください（全体で300字程度、余計な前置きは不要）。\n` +
     `最初の行に必ず \`判定: エントリー\` または \`判定: 見送り\` と明記してください。\n` +
-    `エントリーの場合は続けて「方向:」「エントリー価格帯:」「TP:」「SL:」「根拠:」を、\n` +
+    `エントリーの場合は続けて「方向:」「おすすめ度:」(セットアップの良さを5段階の数字1〜5で。` +
+    `数字が大きいほど自信度が高い)「エントリー価格帯:」「TP:」「SL:」「根拠:」を、\n` +
     `見送りの場合は続けて「理由:」を記載してください。\n` +
     `最後に「本分析は教育・参考目的であり投資助言ではありません」という一文を必ず添えてください。`
   );
@@ -246,6 +247,7 @@ function parseAnalysis(analysisText) {
   return {
     verdict: extractField(analysisText, '判定'),
     direction: extractField(analysisText, '方向'),
+    confidence: extractField(analysisText, 'おすすめ度'),
     entryRange: extractField(analysisText, 'エントリー価格帯'),
     tp: extractField(analysisText, 'TP'),
     sl: extractField(analysisText, 'SL'),
@@ -332,11 +334,39 @@ function spreadsheetLine() {
   return SPREADSHEET_URL ? `📊 スプレッドシート: ${SPREADSHEET_URL}\n\n` : '';
 }
 
+// 「ポジション追跡ログ」から集計した銘柄別のTP到達/SL到達/撤退推奨件数を
+// Apps Script(doGet)から取得する。未設定・失敗時はnullを返し、呼び出し側は
+// 勝率表示を省略する。
+async function fetchWinStats(label) {
+  if (!SHEETS_WEBHOOK_URL) return null;
+  try {
+    const url = new URL(SHEETS_WEBHOOK_URL);
+    url.searchParams.set('symbol', label);
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (err) {
+    console.error('勝率取得エラー:', err.message || err);
+    return null;
+  }
+}
+
+function winRateLine(stats) {
+  if (!stats) return '';
+  const decided = (stats.tp || 0) + (stats.sl || 0);
+  if (decided === 0) return '';
+  const pct = Math.round((stats.tp / decided) * 100);
+  const bailPart = stats.bail ? `、撤退${stats.bail}` : '';
+  return `📈 この銘柄の勝率: ${pct}%（${stats.tp}勝${stats.sl}敗${bailPart}）\n\n`;
+}
+
 async function notifyEntry(label, analysisText) {
   const nowJst = new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
+  const stats = await fetchWinStats(label);
   await postDiscordMessage(
     `@everyone 🔔 **${label}** でエントリーチャンスを検知しました\n\n` +
       `${analysisText}\n\n` +
+      winRateLine(stats) +
       spreadsheetLine() +
       `_検知時刻: ${nowJst} (JST)_`
   );
@@ -345,9 +375,11 @@ async function notifyEntry(label, analysisText) {
 async function notifyResolution(label, verdict, comment, lastClose) {
   const nowJst = new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
   const emoji = verdict === 'TP到達' ? '✅' : verdict === 'SL到達' ? '🛑' : '⚠️';
+  const stats = await fetchWinStats(label);
   await postDiscordMessage(
     `@everyone ${emoji} **${label}** ポジション追跡終了: ${verdict}\n\n` +
       `現在値: ${lastClose}\n${comment}\n\n` +
+      winRateLine(stats) +
       spreadsheetLine() +
       `_検知時刻: ${nowJst} (JST)_`
   );
