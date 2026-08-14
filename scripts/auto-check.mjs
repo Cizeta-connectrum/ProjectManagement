@@ -35,6 +35,13 @@ const SYMBOLS = [
 ];
 
 const POSITIONS_FILE = fileURLToPath(new URL('../data/open-positions.json', import.meta.url));
+const STATE_FILE = fileURLToPath(new URL('../data/state.json', import.meta.url));
+
+// GitHub Actions の cron はスケジュール通りの分ちょうどには発火しない
+// (高負荷時は数十分〜1時間以上ずれることがある)。壁時計の分と一致させる
+// 判定にすると、ずれた瞬間に本チェックの条件を満たせず永久にスキップされて
+// しまうため、「前回の本チェックからどれだけ経過したか」で判定する。
+const MAIN_TICK_INTERVAL_MS = 25 * 60 * 1000;
 
 // Trading hours: JST 9:00 - next day 1:00 == UTC 0:00-15:59.
 // Outside this window we still log price data, but skip the Claude call
@@ -44,11 +51,23 @@ function isTradingHours(date = new Date()) {
   return utcHour >= 0 && utcHour <= 15;
 }
 
-// The "normal" cadence tick, aligned with the old 30-minute schedule.
-// Off-tick runs only matter for symbols with an open position (checked every 5 min).
-function isMainTick(date = new Date()) {
-  const minute = date.getUTCMinutes();
-  return minute === 0 || minute === 30;
+function isMainTick(state, date = new Date()) {
+  if (!state.lastMainTick) return true;
+  return date.getTime() - new Date(state.lastMainTick).getTime() >= MAIN_TICK_INTERVAL_MS;
+}
+
+async function loadState() {
+  try {
+    const text = await readFile(STATE_FILE, 'utf8');
+    return JSON.parse(text);
+  } catch (err) {
+    if (err.code === 'ENOENT') return {};
+    throw err;
+  }
+}
+
+async function saveState(state) {
+  await writeFile(STATE_FILE, `${JSON.stringify(state, null, 2)}\n`, 'utf8');
 }
 
 function requireEnv() {
@@ -368,7 +387,9 @@ async function monitorPosition(label, symbol, position) {
 
 async function main() {
   requireEnv();
-  const mainTick = isMainTick();
+  const now = new Date();
+  const state = await loadState();
+  const mainTick = isMainTick(state, now);
   const positions = await loadOpenPositions();
   let positionsChanged = false;
   let hadError = false;
@@ -389,12 +410,17 @@ async function main() {
           positionsChanged = true;
         }
       } else {
-        console.log(`--- ${s.label} ---\n-> ポジションなし・定時チェック外のため今回はスキップ`);
+        console.log(`--- ${s.label} ---\n-> ポジションなし・前回のチェックからまだ間もないためスキップ`);
       }
     } catch (err) {
       hadError = true;
       console.error(`エラー (${s.label}):`, err.message || err);
     }
+  }
+
+  if (mainTick) {
+    state.lastMainTick = now.toISOString();
+    await saveState(state);
   }
 
   if (positionsChanged) {
