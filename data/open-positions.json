@@ -1,12 +1,4 @@
 {
-  "BTC/USD": {
-    "direction": "買い",
-    "entryRange": "64000～64050",
-    "tp": "64300～64400",
-    "sl": "63850",
-    "reason": "直近の値動きから以下の特徴を確認：",
-    "enteredAt": "2026/8/18 0:34:50"
-  },
   "GOLD (XAU/USD)": {
     "direction": "買い",
     "entryRange": "4422.00～4423.50",
