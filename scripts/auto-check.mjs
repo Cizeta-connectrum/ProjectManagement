@@ -352,13 +352,18 @@ async function fetchWinStats(label) {
   }
 }
 
+// 撤退推奨(TP/SL到達前の早期撤退)は勝ちとも負けとも言い切れないため、
+// 0.5勝として引き分け扱いで勝率に含める。
 function winRateLine(stats) {
   if (!stats) return '';
-  const decided = (stats.tp || 0) + (stats.sl || 0);
+  const tp = stats.tp || 0;
+  const sl = stats.sl || 0;
+  const bail = stats.bail || 0;
+  const decided = tp + sl + bail;
   if (decided === 0) return '';
-  const pct = Math.round((stats.tp / decided) * 100);
-  const bailPart = stats.bail ? `、撤退${stats.bail}` : '';
-  return `📈 この銘柄の勝率: ${pct}%（${stats.tp}勝${stats.sl}敗${bailPart}）\n\n`;
+  const pct = Math.round(((tp + bail * 0.5) / decided) * 100);
+  const bailPart = bail ? `、撤退${bail}` : '';
+  return `📈 この銘柄の勝率: ${pct}%（${tp}勝${sl}敗${bailPart}）\n\n`;
 }
 
 async function notifyEntry(label, analysisText) {

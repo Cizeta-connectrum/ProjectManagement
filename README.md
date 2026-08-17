@@ -116,7 +116,8 @@ Google Cloudの複雑な認証設定は不要です。
        sheet.getRange(row, 2).setFormula('=COUNTIFS(ポジション追跡ログ!B:B,A' + row + ',ポジション追跡ログ!D:D,"TP到達")');
        sheet.getRange(row, 3).setFormula('=COUNTIFS(ポジション追跡ログ!B:B,A' + row + ',ポジション追跡ログ!D:D,"SL到達")');
        sheet.getRange(row, 4).setFormula('=COUNTIFS(ポジション追跡ログ!B:B,A' + row + ',ポジション追跡ログ!D:D,"撤退推奨")');
-       sheet.getRange(row, 5).setFormula('=IF((B' + row + '+C' + row + ')=0,"-",TEXT(B' + row + '/(B' + row + '+C' + row + '),"0%"))');
+       // 撤退推奨は勝ちとも負けとも言い切れないため、0.5勝として引き分け扱いで含める。
+       sheet.getRange(row, 5).setFormula('=IF((B' + row + '+C' + row + '+D' + row + ')=0,"-",TEXT((B' + row + '+D' + row + '*0.5)/(B' + row + '+C' + row + '+D' + row + '),"0%"))');
      });
    }
 
@@ -221,3 +222,12 @@ Google Cloudの複雑な認証設定は不要です。
 （未設定のままでも他の機能には影響ありません）。既にこの機能を使っていて古いバージョンの
 Apps Scriptコードを貼り付け済みの場合は、上記の新しいコードで置き換えて再デプロイしてください
 （デプロイ済みのWebアプリURLは変わりません）。
+
+すでに「勝率」シートが作成済みの場合、`ensureWinRateSheet`は最初の1回しか数式を設定しないため、
+E列（勝率）の数式は自動更新されません。「勝率」シートのE2・E3セルに以下を貼り直すか、
+シートごと削除して次回実行時に作り直させてください。
+
+```
+=IF((B2+C2+D2)=0,"-",TEXT((B2+D2*0.5)/(B2+C2+D2),"0%"))
+```
+（3行目はB2などをB3に読み替え）
