@@ -95,10 +95,11 @@ Google Cloudの複雑な認証設定は不要です。
   （1日あたり約64行）。エントリー判定のときは、セットアップの良さをClaudeが5段階（1〜5）で自己評価した
   「おすすめ度」も記録されます
 - **「ポジション追跡ログ」シート**: エントリー判定が出たポジションについて、解決するまで5分おきの状況判断
-  （保有継続/TP到達/SL到達/撤退推奨とそのコメント）を記録します（行数はポジション保有時間に応じて変動します）
-- **「勝率」シート**: 「ポジション追跡ログ」の集計から、銘柄別のTP到達/SL到達/撤退推奨件数と勝率（TP到達÷
-  (TP到達+SL到達)）を自動計算する数式が入ります。エントリー通知・ポジション解決通知にも、その時点の勝率が
-  自動的に添えられます
+  （保有継続/TP到達/SL到達/撤退推奨とそのコメント）を記録します（行数はポジション保有時間に応じて変動します）。
+  撤退推奨（TP/SLに届く前の早期撤退）の場合は、エントリー価格と決着時点の価格を比較して「損益」列に利益/損失を記録します
+- **「勝率」シート**: 「ポジション追跡ログ」の集計から、銘柄別の勝ち負けと勝率を自動計算する数式が入ります。
+  TP到達は勝ち・SL到達は負けとしてそのまま数え、撤退推奨は損益列（利益/損失）に応じてどちらかに振り分けます。
+  エントリー通知・ポジション解決通知にも、その時点の勝率が自動的に添えられます
 
 1. Google Sheetsで新しいスプレッドシートを作成する
 2. メニューの「拡張機能」→「Apps Script」を開く
@@ -108,33 +109,41 @@ Google Cloudの複雑な認証設定は不要です。
    function ensureWinRateSheet(ss) {
      if (ss.getSheetByName('勝率')) return;
      var sheet = ss.insertSheet('勝率');
-     sheet.appendRow(['銘柄', 'TP到達', 'SL到達', '撤退推奨', '勝率']);
+     sheet.appendRow(['銘柄', '勝ち', '負け', '撤退推奨(参考)', '勝率']);
      var symbols = ['BTC/USD', 'GOLD (XAU/USD)'];
      symbols.forEach(function (symbol, i) {
        var row = i + 2;
        sheet.getRange(row, 1).setValue(symbol);
-       sheet.getRange(row, 2).setFormula('=COUNTIFS(ポジション追跡ログ!B:B,A' + row + ',ポジション追跡ログ!D:D,"TP到達")');
-       sheet.getRange(row, 3).setFormula('=COUNTIFS(ポジション追跡ログ!B:B,A' + row + ',ポジション追跡ログ!D:D,"SL到達")');
+       // 勝ち = TP到達 + 撤退推奨のうち決着時点で含み益だったもの
+       sheet.getRange(row, 2).setFormula('=COUNTIFS(ポジション追跡ログ!B:B,A' + row + ',ポジション追跡ログ!D:D,"TP到達")+COUNTIFS(ポジション追跡ログ!B:B,A' + row + ',ポジション追跡ログ!D:D,"撤退推奨",ポジション追跡ログ!F:F,"利益")');
+       // 負け = SL到達 + 撤退推奨のうち決着時点で含み損だったもの
+       sheet.getRange(row, 3).setFormula('=COUNTIFS(ポジション追跡ログ!B:B,A' + row + ',ポジション追跡ログ!D:D,"SL到達")+COUNTIFS(ポジション追跡ログ!B:B,A' + row + ',ポジション追跡ログ!D:D,"撤退推奨",ポジション追跡ログ!F:F,"損失")');
        sheet.getRange(row, 4).setFormula('=COUNTIFS(ポジション追跡ログ!B:B,A' + row + ',ポジション追跡ログ!D:D,"撤退推奨")');
-       // 撤退推奨は勝ちとも負けとも言い切れないため、0.5勝として引き分け扱いで含める。
-       sheet.getRange(row, 5).setFormula('=IF((B' + row + '+C' + row + '+D' + row + ')=0,"-",TEXT((B' + row + '+D' + row + '*0.5)/(B' + row + '+C' + row + '+D' + row + '),"0%"))');
+       sheet.getRange(row, 5).setFormula('=IF((B' + row + '+C' + row + ')=0,"-",TEXT(B' + row + '/(B' + row + '+C' + row + '),"0%"))');
      });
    }
 
    // Discordへの通知に載せる勝率をNode側から取得するためのGETエンドポイント。
    // 例: <ウェブアプリURL>?symbol=BTC/USD
+   // 撤退推奨は、エントリー価格と決着時点の価格を比較した結果(F列: 利益/損失)で
+   // 勝ち・負けそれぞれに振り分ける。
    function doGet(e) {
      var symbol = e.parameter.symbol;
      var ss = SpreadsheetApp.getActiveSpreadsheet();
      var sheet = ss.getSheetByName('ポジション追跡ログ');
-     var result = { tp: 0, sl: 0, bail: 0 };
+     var result = { win: 0, loss: 0, bail: 0 };
      if (sheet && symbol) {
        var data = sheet.getDataRange().getValues();
        for (var i = 1; i < data.length; i++) {
-         if (data[i][1] === symbol) {
-           if (data[i][3] === 'TP到達') result.tp++;
-           else if (data[i][3] === 'SL到達') result.sl++;
-           else if (data[i][3] === '撤退推奨') result.bail++;
+         if (data[i][1] !== symbol) continue;
+         var verdict = data[i][3];
+         var pnl = data[i][5];
+         if (verdict === 'TP到達') result.win++;
+         else if (verdict === 'SL到達') result.loss++;
+         else if (verdict === '撤退推奨') {
+           result.bail++;
+           if (pnl === '利益') result.win++;
+           else if (pnl === '損失') result.loss++;
          }
        }
      }
@@ -173,14 +182,15 @@ Google Cloudの複雑な認証設定は不要です。
      } else if (data.type === 'position_check') {
        var posSheet = ss.getSheetByName('ポジション追跡ログ') || ss.insertSheet('ポジション追跡ログ');
        if (posSheet.getLastRow() === 0) {
-         posSheet.appendRow(['日時', '銘柄', '現在値', '判定', 'コメント']);
+         posSheet.appendRow(['日時', '銘柄', '現在値', '判定', 'コメント', '損益']);
        }
        posSheet.appendRow([
          data.timestamp || '',
          data.symbol || '',
          data.lastClose || '',
          data.verdict || '',
-         data.comment || ''
+         data.comment || '',
+         data.pnl || ''
        ]);
      } else {
        var logSheet = ss.getSheetByName('分析ログ') || ss.insertSheet('分析ログ');
@@ -223,11 +233,10 @@ Google Cloudの複雑な認証設定は不要です。
 Apps Scriptコードを貼り付け済みの場合は、上記の新しいコードで置き換えて再デプロイしてください
 （デプロイ済みのWebアプリURLは変わりません）。
 
-すでに「勝率」シートが作成済みの場合、`ensureWinRateSheet`は最初の1回しか数式を設定しないため、
-E列（勝率）の数式は自動更新されません。「勝率」シートのE2・E3セルに以下を貼り直すか、
-シートごと削除して次回実行時に作り直させてください。
+すでに「勝率」シートが作成済みの場合、`ensureWinRateSheet`は最初の1回しか列・数式を設定しないため、
+自動更新されません。**「勝率」シートをタブごと削除**してください。次回の実行時に、新しい列構成
+（銘柄・勝ち・負け・撤退推奨(参考)・勝率）で自動的に作り直されます。
 
-```
-=IF((B2+C2+D2)=0,"-",TEXT((B2+D2*0.5)/(B2+C2+D2),"0%"))
-```
-（3行目はB2などをB3に読み替え）
+あわせて、「ポジション追跡ログ」シートのF1セルに手動で「損益」と入力しておいてください
+（すでにデータがあるシートはヘッダー行が自動更新されないため）。過去の行のF列は空欄のままで
+問題ありません（今後の撤退推奨の行から、決着時点で利益だったか損失だったかが記録されます）。

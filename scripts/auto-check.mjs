@@ -244,6 +244,14 @@ function extractField(text, label) {
   return m ? m[1].trim() : '';
 }
 
+// "63,050～63,080" や "4375円" のような文字列から最初の数値を取り出す。
+// エントリー価格帯の代表値として使う(範囲の場合は下限側)。
+function parseNumber(str) {
+  if (!str) return NaN;
+  const m = String(str).replace(/,/g, '').match(/-?\d+(\.\d+)?/);
+  return m ? parseFloat(m[0]) : NaN;
+}
+
 function parseAnalysis(analysisText) {
   return {
     verdict: extractField(analysisText, '判定'),
@@ -335,9 +343,11 @@ function spreadsheetLine() {
   return SPREADSHEET_URL ? `📊 スプレッドシート: ${SPREADSHEET_URL}\n\n` : '';
 }
 
-// 「ポジション追跡ログ」から集計した銘柄別のTP到達/SL到達/撤退推奨件数を
-// Apps Script(doGet)から取得する。未設定・失敗時はnullを返し、呼び出し側は
-// 勝率表示を省略する。
+// 「ポジション追跡ログ」から集計した銘柄別の勝ち/負け/撤退推奨件数を
+// Apps Script(doGet)から取得する。TP到達は勝ち、SL到達は負けに数え、
+// 撤退推奨はエントリー価格と決着時点の価格を比較した結果(利益/損失)で
+// 勝ち・負けそれぞれに振り分ける(Apps Script側で集計済み)。
+// 未設定・失敗時はnullを返し、呼び出し側は勝率表示を省略する。
 async function fetchWinStats(label) {
   if (!SHEETS_WEBHOOK_URL) return null;
   try {
@@ -352,18 +362,16 @@ async function fetchWinStats(label) {
   }
 }
 
-// 撤退推奨(TP/SL到達前の早期撤退)は勝ちとも負けとも言い切れないため、
-// 0.5勝として引き分け扱いで勝率に含める。
 function winRateLine(stats) {
   if (!stats) return '';
-  const tp = stats.tp || 0;
-  const sl = stats.sl || 0;
+  const win = stats.win || 0;
+  const loss = stats.loss || 0;
   const bail = stats.bail || 0;
-  const decided = tp + sl + bail;
+  const decided = win + loss;
   if (decided === 0) return '';
-  const pct = Math.round(((tp + bail * 0.5) / decided) * 100);
-  const bailPart = bail ? `、撤退${bail}` : '';
-  return `📈 この銘柄の勝率: ${pct}%（${tp}勝${sl}敗${bailPart}）\n\n`;
+  const pct = Math.round((win / decided) * 100);
+  const bailPart = bail ? `、うち撤退推奨${bail}` : '';
+  return `📈 この銘柄の勝率: ${pct}%（${win}勝${loss}敗${bailPart}）\n\n`;
 }
 
 async function notifyEntry(label, analysisText) {
@@ -453,6 +461,18 @@ async function monitorPosition(label, symbol, position) {
   const nowJst = new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
   const lastClose = candles[candles.length - 1].close;
 
+  // 撤退推奨はTP/SLに到達する前の判断なので、勝ち負けが自明ではない。
+  // エントリー価格と現在値を比較し、含み益なら利益、含み損なら損失として記録する。
+  let pnl = '';
+  if (verdict === '撤退推奨') {
+    const entryPrice = parseNumber(position.entryRange);
+    const exitPrice = parseNumber(lastClose);
+    if (!Number.isNaN(entryPrice) && !Number.isNaN(exitPrice)) {
+      const diff = position.direction === '売り' ? entryPrice - exitPrice : exitPrice - entryPrice;
+      pnl = diff > 0 ? '利益' : diff < 0 ? '損失' : '同値';
+    }
+  }
+
   await logToSheet({
     type: 'position_check',
     timestamp: nowJst,
@@ -460,6 +480,7 @@ async function monitorPosition(label, symbol, position) {
     lastClose,
     verdict,
     comment,
+    pnl,
   });
 
   const resolved = verdict !== '保有継続';
