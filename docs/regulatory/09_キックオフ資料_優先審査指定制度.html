@@ -1,0 +1,334 @@
+<title>優先審査指定 キックオフ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;600;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
+<style>
+  :root{
+    --paper:#FBFAF6; --surface:#FFFFFF; --ink:#22252B; --ink-soft:#5A5F6A;
+    --line:#E1DFD6; --line-strong:#C9C6BA;
+    --kon:#22456E; --kon-soft:#EAF0F7; --kon-line:#B9C9DE;
+    --shu:#B3383E; --shu-soft:#F9ECEC;
+    --amber:#9A6B00; --amber-soft:#F7F0DC;
+    --green:#2E6E4E; --green-soft:#E7F1EA;
+    --quote-bg:#F5F3EA; --quote-line:#8A7B4E;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper:#191B20; --surface:#22252C; --ink:#E8E6DF; --ink-soft:#A6A9B2;
+      --line:#3A3E48; --line-strong:#4A4F5B;
+      --kon:#8FB0DB; --kon-soft:#26303F; --kon-line:#3D5173;
+      --shu:#E08187; --shu-soft:#3A2528;
+      --amber:#D9B15C; --amber-soft:#38301C;
+      --green:#7FBF9C; --green-soft:#20342A;
+      --quote-bg:#2A2921; --quote-line:#B3A26B;
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#191B20; --surface:#22252C; --ink:#E8E6DF; --ink-soft:#A6A9B2;
+    --line:#3A3E48; --line-strong:#4A4F5B;
+    --kon:#8FB0DB; --kon-soft:#26303F; --kon-line:#3D5173;
+    --shu:#E08187; --shu-soft:#3A2528;
+    --amber:#D9B15C; --amber-soft:#38301C;
+    --green:#7FBF9C; --green-soft:#20342A;
+    --quote-bg:#2A2921; --quote-line:#B3A26B;
+  }
+  html{scroll-behavior:smooth}
+  @media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}}
+  body{
+    background:var(--paper); color:var(--ink); margin:0;
+    font-family:"Zen Kaku Gothic New","Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;
+    font-size:15.5px; line-height:1.85;
+  }
+  .wrap{max-width:860px; margin:0 auto; padding:56px 28px 96px}
+  a{color:var(--kon)}
+  a:focus-visible,button:focus-visible{outline:2px solid var(--kon); outline-offset:2px}
+
+  /* ---- header ---- */
+  .eyebrow{
+    letter-spacing:.24em; font-size:12px; font-weight:700; color:var(--kon);
+    text-transform:uppercase; margin-bottom:14px;
+  }
+  h1{
+    font-family:"Shippori Mincho","Hiragino Mincho ProN",serif;
+    font-size:clamp(30px,5vw,42px); font-weight:700; line-height:1.35;
+    margin:0 0 10px; letter-spacing:.02em; text-wrap:balance;
+  }
+  .subtitle{color:var(--ink-soft); margin:0 0 26px; font-size:16px}
+  .meta{
+    display:flex; flex-wrap:wrap; gap:10px 28px; padding:16px 0;
+    border-top:1px solid var(--line-strong); border-bottom:1px solid var(--line-strong);
+    font-size:13.5px;
+  }
+  .meta dt{color:var(--ink-soft); font-size:11.5px; letter-spacing:.14em; margin:0}
+  .meta dd{margin:0; font-weight:500}
+  .meta > div{margin:0}
+  dl.meta{margin:0 0 8px}
+
+  /* ---- sections ---- */
+  section{margin-top:64px}
+  .sec-head{display:flex; align-items:baseline; gap:14px; border-bottom:2px solid var(--kon); padding-bottom:10px; margin-bottom:26px}
+  .sec-num{
+    font-family:"Shippori Mincho",serif; color:var(--kon); font-weight:700;
+    font-size:15px; letter-spacing:.1em; white-space:nowrap;
+  }
+  h2{
+    font-family:"Shippori Mincho",serif; font-size:24px; font-weight:700;
+    margin:0; letter-spacing:.02em; text-wrap:balance;
+  }
+  h3{font-size:16.5px; font-weight:700; margin:26px 0 10px; letter-spacing:.02em}
+  p{margin:0 0 14px}
+  .lead{font-size:16px}
+
+  /* ---- excerpt (原文抜粋) ---- */
+  .excerpt{
+    background:var(--quote-bg); border-left:4px solid var(--quote-line);
+    padding:18px 22px 14px; margin:18px 0; border-radius:0 6px 6px 0;
+  }
+  .excerpt .tag{
+    display:inline-block; font-size:11px; font-weight:700; letter-spacing:.18em;
+    color:var(--quote-line); margin-bottom:8px;
+  }
+  .excerpt p{
+    font-family:"Shippori Mincho",serif; font-size:14.5px; line-height:2.0; margin:0 0 8px;
+  }
+  .excerpt .src{font-family:"Zen Kaku Gothic New",sans-serif; font-size:12px; color:var(--ink-soft); margin:6px 0 0; text-align:right}
+  .excerpt mark{background:transparent; color:var(--shu); font-weight:700; text-decoration:underline; text-underline-offset:4px; text-decoration-thickness:1.5px}
+
+  /* ---- benefit grid ---- */
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:14px; margin:18px 0}
+  @media (max-width:640px){.grid2{grid-template-columns:1fr}}
+  .card{
+    background:var(--surface); border:1px solid var(--line); border-radius:8px;
+    padding:18px 20px 14px;
+  }
+  .card h4{margin:0 0 6px; font-size:15px; font-weight:700; color:var(--kon)}
+  .card p{font-size:13.5px; color:var(--ink-soft); margin:0}
+  .card .big{font-family:"Shippori Mincho",serif; font-size:22px; color:var(--ink); font-weight:700}
+
+  /* ---- requirement blocks ---- */
+  .req{background:var(--surface); border:1px solid var(--line); border-radius:10px; margin:22px 0; overflow:hidden}
+  .req-head{display:flex; align-items:center; gap:12px; padding:14px 20px; border-bottom:1px solid var(--line); flex-wrap:wrap}
+  .req-head .name{font-family:"Shippori Mincho",serif; font-weight:700; font-size:17px}
+  .chip{
+    font-size:12px; font-weight:700; padding:3px 12px; border-radius:999px;
+    letter-spacing:.06em; white-space:nowrap;
+  }
+  .chip.risk{background:var(--shu-soft); color:var(--shu); border:1px solid var(--shu)}
+  .chip.warn{background:var(--amber-soft); color:var(--amber); border:1px solid var(--amber)}
+  .chip.ok{background:var(--green-soft); color:var(--green); border:1px solid var(--green)}
+  .req-body{padding:16px 20px 6px}
+  .req-body .fit{margin:12px 0 14px; padding:12px 16px; background:var(--kon-soft); border:1px solid var(--kon-line); border-radius:6px; font-size:14px}
+  .req-body .fit b{color:var(--kon)}
+
+  /* ---- process flow ---- */
+  ol.flow{list-style:none; counter-reset:step; margin:20px 0; padding:0; display:grid; gap:0}
+  ol.flow li{
+    counter-increment:step; position:relative; padding:14px 0 18px 58px; margin:0;
+  }
+  ol.flow li::before{
+    content:counter(step); position:absolute; left:0; top:12px;
+    width:36px; height:36px; border-radius:50%;
+    background:var(--kon); color:var(--paper); font-weight:700;
+    display:flex; align-items:center; justify-content:center;
+    font-family:"Shippori Mincho",serif; font-size:16px;
+  }
+  ol.flow li:not(:last-child)::after{
+    content:""; position:absolute; left:17px; top:52px; bottom:-6px; width:2px; background:var(--kon-line);
+  }
+  ol.flow .step-t{font-weight:700; font-size:15.5px}
+  ol.flow p{font-size:14px; color:var(--ink-soft); margin:4px 0 0}
+  ol.flow code{
+    font-family:ui-monospace,Menlo,Consolas,monospace; font-size:13px;
+    background:var(--kon-soft); border:1px solid var(--kon-line); padding:1px 7px; border-radius:4px; color:var(--ink);
+  }
+
+  /* ---- caution list ---- */
+  ul.caution{list-style:none; padding:0; margin:14px 0}
+  ul.caution li{
+    position:relative; padding:10px 14px 10px 40px; margin:0 0 10px;
+    background:var(--shu-soft); border:1px solid var(--shu); border-radius:6px; font-size:14px;
+  }
+  ul.caution li::before{content:"※"; position:absolute; left:15px; top:9px; color:var(--shu); font-weight:700}
+
+  /* ---- plain lists ---- */
+  ul.plain{padding-left:1.3em; margin:8px 0 16px}
+  ul.plain li{margin-bottom:6px}
+
+  /* ---- tables ---- */
+  .tbl-wrap{overflow-x:auto; margin:16px 0}
+  table{border-collapse:collapse; width:100%; font-size:14px; background:var(--surface)}
+  th,td{border:1px solid var(--line); padding:9px 13px; text-align:left; vertical-align:top; line-height:1.7}
+  th{background:var(--kon-soft); color:var(--ink); font-size:13px; letter-spacing:.04em; white-space:nowrap}
+  td.who{white-space:nowrap; font-weight:500}
+  td .fill{color:var(--ink-soft)}
+  tabular{font-variant-numeric:tabular-nums}
+
+  /* ---- decision items ---- */
+  .decide{border:2px solid var(--kon); border-radius:10px; padding:6px 24px 10px; background:var(--surface); margin:20px 0}
+  .decide h3{color:var(--kon); margin-top:18px}
+  .decide ol{margin:0 0 16px; padding-left:1.5em}
+  .decide li{margin-bottom:10px}
+  .decide .q{font-weight:700}
+  .decide .hint{font-size:13.5px; color:var(--ink-soft); display:block}
+
+  footer{
+    margin-top:72px; padding-top:18px; border-top:1px solid var(--line-strong);
+    font-size:12.5px; color:var(--ink-soft);
+  }
+  footer ul{margin:6px 0 12px; padding-left:1.3em}
+  footer li{margin-bottom:2px}
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">PaTaKaRUSH 薬事戦略プロジェクト</div>
+    <h1>プログラム医療機器<br>優先審査指定制度への挑戦</h1>
+    <p class="subtitle">キックオフミーティング資料 — 制度の全体像・指定要件の当てはめ・本日決めること</p>
+    <dl class="meta">
+      <div><dt>対象通知</dt><dd>医薬機審発0615第1号（令和8年6月15日）</dd></div>
+      <div><dt>通知名</dt><dd>プログラム医療機器等に係る優先的な審査等の試行的実施について</dd></div>
+      <div><dt>作成日</dt><dd>2026年8月31日</dd></div>
+      <div><dt>資料一式</dt><dd>docs/regulatory/（原本は sources/ 配下）</dd></div>
+    </dl>
+  </header>
+
+  <section id="goal">
+    <div class="sec-head"><span class="sec-num">第1部</span><h2>本日のゴール</h2></div>
+    <p class="lead">このミーティングで、次の3点を持ち帰れる状態にします。</p>
+    <ul class="plain">
+      <li><strong>制度理解の共有</strong> — 優先審査指定制度が「何をくれて、何を要求するか」を全員が同じ解像度で把握する</li>
+      <li><strong>当てはめ評価の合意</strong> — PaTaKaRUSHが3つの指定要件をどこまで満たせるか、現状評価（本資料 第3部）に合意する</li>
+      <li><strong>宿題の割当</strong> — 第6部の意思決定事項と準備タスクに担当と期限を付ける</li>
+    </ul>
+  </section>
+
+  <section id="about">
+    <div class="sec-head"><span class="sec-num">第2部</span><h2>制度とは — 指定されると何が変わるか</h2></div>
+    <p>革新的なプログラム医療機器（SaMD）を国が指定し、相談・審査を優先的に扱う試行制度です。令和4年度から回次公募で実施されてきたものが、現行通知（R8.6.15）で<strong>随時募集</strong>に移行しました。指定は「承認」ではありません — 承認申請の中身（臨床試験・QMS・業許可）は通常どおり必要で、指定の効果は<strong>速く・手厚くなること</strong>です。</p>
+    <div class="grid2">
+      <div class="card"><h4>優先審査・事前評価</h4><p>承認申請から承認まで<span class="big">6か月以内</span><br>（全申請区分。先駆け総合評価相談の活用が前提）</p></div>
+      <div class="card"><h4>優先相談</h4><p>PMDAの対面助言等で他機器に優先した取扱い。相談待ちの行列に並ばない</p></div>
+      <div class="card"><h4>コンシェルジュ</h4><p>PMDAが指名する担当者が開発進捗管理・厚労省/審査部署との調整を伴走支援</p></div>
+      <div class="card"><h4>費用支援</h4><p>革新的医療機器等相談承認申請支援事業の対象となり、相談費用等の支援を受けられる</p></div>
+    </div>
+    <div class="excerpt">
+      <span class="tag">原文抜粋</span>
+      <p>承認申請から承認までの期間を短縮させるため（<mark>すべて申請区分において６か月以内</mark>）、後述するコンシェルジュに相談し、指定を受けた後から承認申請までに、原則、総合機構で実施されている先駆け総合評価相談を利用すること。</p>
+      <p class="src">— 通知 4.（2）事前評価の充実</p>
+    </div>
+  </section>
+
+  <section id="req">
+    <div class="sec-head"><span class="sec-num">第3部</span><h2>指定の3要件と PaTaKaRUSH の当てはめ</h2></div>
+    <p class="lead">3要件<strong>すべて</strong>の充足が必要です。加えて大前提として、同等原理の医療機器が既承認の場合は原則指定されません。</p>
+    <div class="excerpt">
+      <span class="tag">原文抜粋（大前提）</span>
+      <p>３つのすべての要件を満たす場合であっても、当該医療機器と<mark>同等の原理に基づく使用目的又は効果を有する他の医療機器が既に承認されている場合には原則として指定しない</mark>。</p>
+      <p class="src">— 通知 2. 指定の要件</p>
+    </div>
+
+    <div class="req">
+      <div class="req-head"><span class="name">要件1　治療法・診断法・予防法の画期性</span><span class="chip risk">最大の関門</span></div>
+      <div class="req-body">
+        <div class="excerpt">
+          <span class="tag">原文抜粋</span>
+          <p>原則として、プログラム医療機器（中略）の原理が、既存の医療機器（中略）又は標準的な治療法、診断法若しくは予防法と比べて<mark>明らかに異なる</mark>ものであり、その治療法、診断法又は予防法が画期的であること。</p>
+          <p>なお、<mark>医療現場で実施されている患者指導等と同様の内容を提供することで、自宅等における患者自身の行動変容を促すことを意図したプログラム等は、原則、画期性があるとは認められない</mark>。</p>
+          <p class="src">— 通知 2.（1）指定要件1</p>
+        </div>
+        <div class="fit"><b>当てはめ：</b>パタカラ訓練（口腔機能訓練）自体は医療・介護現場の標準的指導であり、「訓練の宿題をゲームで楽しくする」という説明のままでは、まさに但し書きの類型として画期性を否定されるおそれが大きい。<b>AI音声認識により患者の発声能力へリアルタイムに難易度・刺激を適応させる閉ループ訓練</b>など、「既存の訓練指導とは原理そのものが異なる」ことを技術的に立証するストーリー（特許・アルゴリズム説明資料）の構築が指定申請の成否を分ける。</div>
+      </div>
+    </div>
+
+    <div class="req">
+      <div class="req-head"><span class="name">要件2　対象疾患に係る医療上の有用性</span><span class="chip warn">臨床データが前提</span></div>
+      <div class="req-body">
+        <div class="excerpt">
+          <span class="tag">原文抜粋（ア〜ウのいずれかに該当）</span>
+          <p>ア　根治療法となり得る既存の治療法がない（中略）疾患において、臨床上の必要性が高く、<mark>臨床試験等（公的な競争的資金により実施された臨床研究を含む。）において有効性及び安全性が見込まれる</mark>こと。</p>
+          <p>イ　臨床試験等において、既存の治療法（中略）に比べて<mark>高い有効性及び安全性が見込まれる</mark>こと。</p>
+          <p>ウ　臨床試験等において、既存の治療法（中略）に比べて同等以上の有効性及び安全性が見込まれていることに加え、<mark>患者の肉体的・精神的な負担等の観点から（中略）医療上特に有用</mark>であると見込まれること。</p>
+          <p class="src">— 通知 2.（2）指定要件2</p>
+        </div>
+        <div class="fit"><b>当てはめ：</b>いずれの類型も「臨床試験等において見込まれる」ことが前提のため、<b>データゼロでの指定申請は困難</b>。口腔機能低下症／発達不全症には既存の訓練指導が存在するので、主張はイ（高い有効性）またはウ（同等以上＋継続率・アドヒアランス向上等の負担軽減）となる見込み。探索的臨床研究（AMED等の公的競争的資金の活用も通知が明示）を先行させ、その結果を根拠資料とする順序が現実的。</div>
+      </div>
+    </div>
+
+    <div class="req">
+      <div class="req-head"><span class="name">要件3　世界に先駆けた日本での開発・申請</span><span class="chip ok">主張しやすい</span></div>
+      <div class="req-body">
+        <div class="excerpt">
+          <span class="tag">原文抜粋</span>
+          <p>日本における早期開発を重視し、<mark>世界に先駆けて又は同時に日本で承認申請される</mark>（中略）予定のものであること。それに加え、（中略）<mark>先駆け総合評価相談を活用し承認申請できる体制及び迅速な承認審査に対応できる体制</mark>を有していること。なお、指定を希望する品目と同様の原理による<mark>類似製品が世界において既に流通している場合は、指定の対象とならない</mark>。</p>
+          <p class="src">— 通知 2.（3）指定要件3</p>
+        </div>
+        <div class="fit"><b>当てはめ：</b>国産・日本先行開発であり主張しやすい。ただし①世界で流通する類似SaMD（医療機器としての口腔機能訓練アプリ）がないことの調査報告、②先駆け総合評価相談・迅速審査に対応できる社内体制（薬事担当・QMS・開発計画）の説明、の2点を資料化する必要がある。</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="process">
+    <div class="sec-head"><span class="sec-num">第4部</span><h2>指定までの手続きフロー</h2></div>
+    <ol class="flow">
+      <li><span class="step-t">登録申込み（様式1）</span>
+        <p>指定希望品目登録申込書（様式1＋別紙）を電子メールで随時提出：<code>kikisaisei@mhlw.go.jp</code>（厚労省 医療機器審査管理課）</p></li>
+      <li><span class="step-t">ヒアリング</span>
+        <p>医療機器審査管理課によるヒアリング。根拠資料は<strong>実施予定日の1週間前まで</strong>にメール提出</p></li>
+      <li><span class="step-t">予備的審査</span>
+        <p>明らかに要件非該当の品目を除外する審査（随時実施・結果は速やかに連絡）。ここが最初の関所</p></li>
+      <li><span class="step-t">指定申請（様式2）→ 評価 → 指定</span>
+        <p>予備的審査通過後、様式2＋根拠資料を期限までに提出。PMDA評価を経て「特に優れている」品目を選定、薬事審議会報告のうえ公表</p></li>
+    </ol>
+    <p>落選しても薬事手続き上の不利益はなく、ヒアリングで行政の感触を得られます。ただし要件1・2が弱いまま出すと、説得力あるストーリーを整えてからの再挑戦機会を1回費やすことになるため、<strong>出すタイミングの見極めが重要</strong>です。</p>
+  </section>
+
+  <section id="caution">
+    <div class="sec-head"><span class="sec-num">第5部</span><h2>重要な留意点 — 指定と引き換えに縛られること</h2></div>
+    <ul class="caution">
+      <li><strong>二段階承認・リバランス通知との二者択一。</strong>これらの活用を希望する品目はそもそも対象外で、指定後に相談しただけでも取消し事由になる。エビデンス構築が長引く場合は二段階承認の方が現実的な可能性もあり、コミットの意思決定が必要</li>
+      <li><strong>指定後の大幅なプログラム変更は取消し事由。</strong>有効性・安全性に関わる機能変更の自由度が下がるため、申請までの機能凍結計画が要る</li>
+      <li><strong>指定後の試験で想定した高い有用性が見込まれない場合も取消し。</strong>指定は「予約」であって既得権ではない</li>
+    </ul>
+    <div class="excerpt">
+      <span class="tag">原文抜粋（指定の取消し）</span>
+      <p>・指定後に<mark>有効性又は安全性に係る大幅なプログラムの変更</mark>を行った、又は、プログラムの変更が必要であることが明確になった場合。<br>・<mark>リバランス通知や二段階承認通知を利用した開発方針について医療機器審査管理課や総合機構と相談した場合</mark>。</p>
+      <p class="src">— 通知 5. 指定の取消し（抜粋）</p>
+    </div>
+  </section>
+
+  <section id="decide">
+    <div class="sec-head"><span class="sec-num">第6部</span><h2>本日決めたいこと・宿題</h2></div>
+    <div class="decide">
+      <h3>意思決定事項（会議で方向づけ）</h3>
+      <ol>
+        <li><span class="q">適応の選択：</span>高齢者「口腔機能低下症」か、小児「口腔機能発達不全症」か
+          <span class="hint">高齢者はODK等の客観指標が確立しエンドポイント設定が容易。小児はゲーム化の強みが活きるが、成長発達との切り分けで対照群設計がシビア</span></li>
+        <li><span class="q">機能定義：</span>ルートA（治療特化・判定はゲームスコア扱い）か、ルートB（検査・治療一体型）か
+          <span class="hint">社内検討スライドの推奨はルートA。ただし現行アプリが「滑舌検査」を名乗っている点との整合（医療機器版での検査訴求の扱い）を要整理</span></li>
+        <li><span class="q">先行臨床研究：</span>探索的臨床研究の実施方針と資金（AMED等の公的競争的資金への応募を含む）</li>
+        <li><span class="q">ルートのコミット時期：</span>優先審査指定と二段階承認の両にらみを、いつ・何の情報でどちらかに確定するか</li>
+      </ol>
+      <h3>準備タスク（担当・期限を割当）</h3>
+      <div class="tbl-wrap">
+        <table>
+          <tr><th>タスク</th><th>成果物</th><th>担当</th><th>期限</th></tr>
+          <tr><td>画期性の説明資料の草案（適応型アルゴリズムの独自性、特許出願状況）</td><td>技術説明書ドラフト</td><td class="who"><span class="fill">未定</span></td><td><span class="fill">未定</span></td></tr>
+          <tr><td>類似品調査（国内既承認SaMD・世界で流通する類似製品の網羅調査）</td><td>調査報告書</td><td class="who"><span class="fill">未定</span></td><td><span class="fill">未定</span></td></tr>
+          <tr><td>探索的臨床研究の計画素案（エンドポイントに使う外部指標・機器の確定を含む）</td><td>研究計画概要</td><td class="who"><span class="fill">未定</span></td><td><span class="fill">未定</span></td></tr>
+          <tr><td>様式1・別紙の入手と記載準備（厚労省サイトから様式取得）</td><td>様式1ドラフト</td><td class="who"><span class="fill">未定</span></td><td><span class="fill">未定</span></td></tr>
+          <tr><td>開発体制の説明資料（薬事担当・QMS・製造販売業の取得計画、事業主体の役割分担）</td><td>体制図・計画書</td><td class="who"><span class="fill">未定</span></td><td><span class="fill">未定</span></td></tr>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <strong>出典・関連資料</strong>
+    <ul>
+      <li>「プログラム医療機器等に係る優先的な審査等の試行的実施について」医薬機審発0615第1号（令和8年6月15日）— 原本: docs/regulatory/sources/優先審査等試行的実施通知_R08.06.15.pdf</li>
+      <li>要件整理・ギャップ分析の詳細: docs/regulatory/08_優先審査指定制度.md</li>
+      <li>ベンチマーク事例（ENDEAVORRIDE/EndeavorRx）: docs/regulatory/07_先行事例.md</li>
+      <li>製品情報・医療機器化の検討状況: docs/regulatory/01_製品情報.md</li>
+    </ul>
+    本資料の制度解釈は上記通知の作成時点の読解に基づく整理です。指定申請前に厚労省医療機器審査管理課・PMDAへの確認を推奨します。
+  </footer>
+</div>
