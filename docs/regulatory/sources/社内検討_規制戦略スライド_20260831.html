@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PatakaRush Regulatory Strategy</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Merriweather:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        /* 1. THE SETUP & RESET */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: #e2e8f0;
+            display: grid;
+            gap: 20px;
+            grid-template-columns: 1fr;
+            min-height: 100vh;
+            padding: 20px 0;
+            place-items: center;
+            font-family: "DM Sans", sans-serif;
+            color: #121212;
+        }
+
+        /* 1280x720 Fixed Slide Container */
+        .slide-container {
+            width: 1280px;
+            height: 720px;
+            background-color: #f3f0df;
+            border-radius: 8px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+            position: relative;
+            overflow: hidden;
+            padding: 60px 80px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .slide-container.dark-bg {
+            background-color: #005088;
+        }
+
+        .slide-container > * {
+            position: relative;
+            z-index: 1;
+        }
+
+        /* 2. CONSISTENT TYPOGRAPHY & COLORS */
+        h1, h2, h3, h4 {
+            font-family: "Merriweather", serif;
+            font-weight: 700;
+            color: #005088;
+            margin: 0;
+        }
+
+        .dark-bg h1, .dark-bg h2, .dark-bg h3, .dark-bg h4 {
+            color: #f3f0df;
+        }
+
+        p, li, .chart-summary {
+            font-family: "DM Sans", sans-serif;
+            color: #121212;
+            line-height: 1.6;
+            font-size: 20px;
+            margin-bottom: 15px;
+        }
+
+        .dark-bg p, .dark-bg li, .dark-bg .chart-summary {
+            color: #f3f0df;
+        }
+
+        h1 {
+            font-size: 72px;
+            line-height: 1.2;
+            margin-bottom: 20px;
+            letter-spacing: 1px;
+            text-align: center;
+        }
+
+        /* Slide Titles */
+        .slide-title {
+            font-size: 40px;
+            margin-bottom: 40px;
+            text-align: left;
+            width: 100%;
+            border-bottom: 4px solid #11caa0;
+            padding-bottom: 12px;
+            display: inline-block;
+            flex-shrink: 0;
+        }
+
+        h3 {
+            font-size: 26px;
+            margin-bottom: 15px;
+        }
+
+        /* Lists */
+        ul {
+            padding-left: 0;
+            list-style: none;
+            margin: 0;
+        }
+
+        li {
+            position: relative;
+            padding-left: 40px;
+            margin-bottom: 15px;
+        }
+
+        li::before {
+            content: '\f058';
+            font-family: 'Font Awesome 6 Free';
+            font-weight: 900;
+            color: #11caa0;
+            position: absolute;
+            left: 0;
+            top: 4px;
+            font-size: 22px;
+        }
+
+        .subtitle {
+            font-size: 26px;
+            color: #11caa0;
+            font-weight: 500;
+            letter-spacing: 1px;
+            text-align: center;
+        }
+
+        .content-area {
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+            width: 100%;
+            justify-content: flex-start;
+        }
+
+        /* 3. LAYOUT DEFINITIONS */
+        .title-layout {
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+        }
+
+        .section-title-layout {
+            align-items: center;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            justify-content: center;
+            text-align: center;
+            width: 100%;
+        }
+
+        .section-title-layout h2 {
+            font-size: 64px;
+            margin-bottom: 25px;
+        }
+
+        .section-title-layout p {
+            font-size: 28px;
+            max-width: 800px;
+        }
+
+        .section-title-layout hr {
+            background-color: #11caa0;
+            border: none;
+            height: 8px;
+            margin: 30px auto;
+            width: 120px;
+        }
+
+        /* Two Column Layouts */
+        .two-column {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 50px;
+            width: 100%;
+            height: 100%;
+            align-items: stretch;
+        }
+
+        .two-column > div {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .two-column.tiled > div {
+            background-color: #ffffff;
+            border: 2px solid #cdd6e2;
+            padding: 35px 40px;
+            border-radius: 12px;
+            border-top: 8px solid #005088;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+        }
+
+        /* Tiled Content (Icons) */
+        .tiled-content {
+            display: flex;
+            gap: 30px;
+            width: 100%;
+            align-items: stretch;
+            flex-grow: 1;
+        }
+
+        .tile {
+            flex: 1;
+            background-color: #ffffff;
+            border-radius: 12px;
+            border: 2px solid #cdd6e2;
+            padding: 40px 30px;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+        }
+
+        .tile .icon {
+            color: #005088;
+            font-size: 60px;
+            margin-bottom: 25px;
+        }
+
+        /* Styled Bullet Box */
+        .bullet-list {
+            background-color: #ffffff;
+            border-radius: 12px;
+            padding: 45px 50px;
+            border: 2px solid #cdd6e2;
+            border-left: 12px solid #005088;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+            width: 100%;
+        }
+
+        /* Bar Chart */
+        .chart-container {
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
+            width: 100%;
+            background-color: #003d6a;
+            padding: 40px 50px;
+            border-radius: 12px;
+            border: 1px solid #002b4d;
+        }
+
+        .bar {
+            display: flex;
+            align-items: center;
+            gap: 25px;
+        }
+
+        .bar .label {
+            color: #f3f0df;
+            flex: 0 0 280px;
+            font-weight: 700;
+            text-align: right;
+            font-size: 22px;
+            font-family: "Merriweather", serif;
+        }
+
+        .bar .bar-inner {
+            background-color: #cdd6e2;
+            border-radius: 8px;
+            flex-grow: 1;
+            height: 46px;
+            overflow: hidden;
+        }
+
+        .bar .bar-fill {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            height: 100%;
+            padding-right: 20px;
+            color: #121212;
+            font-weight: 700;
+            font-size: 20px;
+            border-radius: 8px;
+            background-color: #11caa0;
+        }
+
+        .chart-summary {
+            font-style: italic;
+            margin-top: 30px;
+            padding: 20px 25px;
+            background-color: rgba(17, 202, 160, 0.15);
+            border-left: 6px solid #11caa0;
+            border-radius: 4px;
+        }
+
+        /* Timeline */
+        .timeline-layout {
+            display: flex;
+            align-items: stretch;
+            height: 350px;
+            justify-content: space-between;
+            position: relative;
+            width: 100%;
+            margin-top: 40px;
+        }
+
+        .timeline-layout .timeline-line {
+            background-color: #cdd6e2;
+            height: 8px;
+            left: 0;
+            position: absolute;
+            top: 50%;
+            transform: translateY(-4px);
+            width: 100%;
+            z-index: 0;
+            border-radius: 4px;
+        }
+
+        .timeline-item {
+            position: relative;
+            text-align: center;
+            width: 23%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .timeline-item::after {
+            content: '';
+            position: absolute;
+            width: 28px;
+            height: 28px;
+            background-color: #ffffff;
+            border: 6px solid #11caa0;
+            border-radius: 50%;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1;
+        }
+
+        .timeline-item .content-wrapper {
+            position: absolute;
+            left: 0;
+            width: 100%;
+            padding: 20px;
+            background-color: #ffffff;
+            border-radius: 8px;
+            border: 2px solid #cdd6e2;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+        }
+
+        .timeline-item:nth-child(odd) .content-wrapper {
+            bottom: calc(50% + 35px);
+        }
+
+        .timeline-item:nth-child(even) .content-wrapper {
+            top: calc(50% + 35px);
+        }
+
+        .timeline-item h3 {
+            color: #005088;
+            font-size: 20px;
+            margin-bottom: 10px;
+            border-bottom: 2px solid #11caa0;
+            padding-bottom: 5px;
+            display: inline-block;
+        }
+
+        .timeline-item p {
+            font-size: 16px;
+            margin-bottom: 0;
+        }
+
+        /* Q&A Layout */
+        .qa-layout {
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+        }
+
+        .qa-layout h2 {
+            font-size: 90px;
+            margin-bottom: 30px;
+        }
+    </style>
+</head>
+<body>
+
+<!-- Slide 1: Title_Slide -->
+<div class="slide-container dark-bg" id="slide1">
+    <div class="title-layout">
+        <h1>PatakaRush<br>Regulatory Strategy</h1>
+        <p class="subtitle">ENDEAVORRIDE承認事例に基づく、SaMD薬事申請へのロードマップ</p>
+    </div>
+</div>
+
+<!-- Slide 2: Tiled_Text_With_Icons -->
+<div class="slide-container" id="slide2">
+    <h2 class="slide-title">ENDEAVORRIDEから導き出される3つの柱</h2>
+    <div class="content-area">
+        <p style="margin-bottom: 30px;">日本初の小児ADHD向け治療アプリ「ENDEAVORRIDE」の事例から、プログラム医療機器(SaMD)として承認を得るための核となる戦略を抽出しました。</p>
+        <div class="tiled-content">
+            <div class="tile">
+                <div class="icon"><i class="fa-solid fa-map-location-dot"></i></div>
+                <h3>明確な位置づけ</h3>
+                <p>単独の治療法ではなく、既存治療への「上乗せ（治療補助）」とする。</p>
+            </div>
+            <div class="tile">
+                <div class="icon"><i class="fa-solid fa-microscope"></i></div>
+                <h3>客観的エビデンス</h3>
+                <p>アプリのスコアではなく、妥当性が検証された「医学的な客観指標」を用いた比較試験を実施する。</p>
+            </div>
+            <div class="tile">
+                <div class="icon"><i class="fa-solid fa-shield-virus"></i></div>
+                <h3>徹底した安全性管理</h3>
+                <p>デジタル特有のリスク評価（眼精疲労など）と、関連学会との連携による適正使用指針の策定。</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Slide 3: Section_Title -->
+<div class="slide-container dark-bg" id="slide3">
+    <div class="section-title-layout">
+        <hr>
+        <h2>1. Strategic Positioning</h2>
+        <p>適応疾患の定義と、薬事戦略の分岐点</p>
+    </div>
+</div>
+
+<!-- Slide 4: Two_Column_Tiled_Text -->
+<div class="slide-container" id="slide4">
+    <h2 class="slide-title">アプローチと作用機序の違い</h2>
+    <div class="content-area">
+        <p style="margin-bottom: 25px;">キュアアップ社等の事例と比較することで、PatakaRushが証明すべき「薬理作用」の違いが明確になります。</p>
+        <div class="two-column tiled">
+            <div>
+                <h3>行動変容型 (CureApp等)</h3>
+                <p style="font-weight: 700; color: #11caa0; margin-bottom: 15px;">代表例: 高血圧・ニコチン依存症</p>
+                <ul>
+                    <li><strong>アプローチ:</strong> 認知行動療法に基づく知識提供、記録（ログ）、指導。</li>
+                    <li><strong>作用機序:</strong> アプリを通じて患者の「日常の意識と生活習慣」が変わることで疾患が改善する（間接的）。</li>
+                </ul>
+            </div>
+            <div>
+                <h3>神経・機能訓練型</h3>
+                <p style="font-weight: 700; color: #11caa0; margin-bottom: 15px;">代表例: ENDEAVORRIDE / PatakaRush</p>
+                <ul>
+                    <li><strong>アプローチ:</strong> 特定のタスク（ゲーム操作や発声）を反復させることによる直接的な刺激。</li>
+                    <li><strong>作用機序:</strong> ゲームプレイ自体が「デジタルの薬」として直接作用する（直接的）。</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Slide 5: Two_Column_Tiled_Text -->
+<div class="slide-container" id="slide5">
+    <h2 class="slide-title">治療機能への特化と外部評価への依存</h2>
+    <div class="content-area">
+        <div class="two-column tiled">
+            <div>
+                <h3>ENDEAVORRIDEのインサイト</h3>
+                <ul>
+                    <li><strong>評価の外部化:</strong> アプリ自体は「治療ツール」に特化。効果測定は外部の検査（TOVA等）に完全に依存。</li>
+                    <li><strong>薬事ハードル低下:</strong> アプリ自身の「測定精度」を証明する責任を回避し、既存指標を用いることで審査をシンプル化。</li>
+                    <li><strong>治療補助:</strong> 既存の心理社会的治療に対する「治療補助」として定義。</li>
+                </ul>
+            </div>
+            <div>
+                <h3>PatakaRushのアクション</h3>
+                <ul>
+                    <li><strong>戦略の選択:</strong> アプリに「検査器」の機能も持たせるか、ENDEAVORRIDEのように「訓練」に特化するかを選択する。</li>
+                    <li><strong>既存指導へ上乗せ:</strong> 従来の口腔機能訓練に対する「治療補助」として申請シナリオを構築。</li>
+                    <li><strong>疾患の特定:</strong> 口腔機能低下症（高齢者）または口腔機能発達不全症（小児）にターゲットを絞る。</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Slide 6: Two_Column_Tiled_Text -->
+<div class="slide-container" id="slide6">
+    <h2 class="slide-title">適応疾患の決定：高齢者 vs 小児</h2>
+    <div class="content-area">
+        <div class="two-column tiled" style="margin-bottom: 25px;">
+            <div>
+                <h3>パターンA: 高齢者</h3>
+                <p style="font-weight: 700; color: #11caa0; margin-bottom: 15px;">適応症: 口腔機能低下症</p>
+                <ul>
+                    <li><strong>メリット:</strong> 保険病名として確立しており、「ODK」など客観的指標によるエンドポイントが極めて設定しやすい。</li>
+                    <li><strong>懸念点:</strong> スマホ操作のリテラシーや、安全性評価（眼精疲労等）のハードルが高い。</li>
+                </ul>
+            </div>
+            <div>
+                <h3>パターンB: 小児</h3>
+                <p style="font-weight: 700; color: #11caa0; margin-bottom: 15px;">適応症: 口腔機能発達不全症</p>
+                <ul>
+                    <li><strong>メリット:</strong> 「単調な訓練をゲーム化して熱中させる」という成功ロジックを完全再現可能。継続率の証明が容易。</li>
+                    <li><strong>懸念点:</strong> 自然な「成長・発達」と「アプリの効果」を切り分けるため、対照群の設計がシビアになる。</li>
+                </ul>
+            </div>
+        </div>
+        <p class="chart-summary"><strong>💡 戦略的推奨:</strong> ゲームのUIがポップで熱中度が高い設計なら「小児」を。文字が大きく健康寿命延伸を主眼とするなら指標が明確な「高齢者」を選択します。</p>
+    </div>
+</div>
+
+<!-- Slide 7: Two_Column_Tiled_Text -->
+<div class="slide-container" id="slide7">
+    <h2 class="slide-title">PatakaRushの機能をどう定義するか</h2>
+    <div class="content-area">
+        <div class="two-column tiled" style="margin-bottom: 25px;">
+            <div>
+                <h3>ルートA: 治療特化モデル</h3>
+                <p style="font-weight: 700; color: #11caa0; margin-bottom: 15px;">ENDEAVORRIDE方式</p>
+                <ul>
+                    <li><strong>定義:</strong> パタカ判定は「ゲームのスコア」であり、医療的な検査機能は持たせない。</li>
+                    <li><strong>証明対象:</strong> このアプリで遊ぶと、外部の既存医療機器で測ったODK数値が良くなることだけを証明。</li>
+                    <li><strong>薬事ハードル:</strong> 低（最速ルート）</li>
+                </ul>
+            </div>
+            <div>
+                <h3>ルートB: 検査・治療 一体型</h3>
+                <p style="font-weight: 700; color: #11caa0; margin-bottom: 15px;">ハイブリッド方式</p>
+                <ul>
+                    <li><strong>定義:</strong> 自動・客観的にODKを測定する機能を持たせ、専用機器の代替とする。</li>
+                    <li><strong>証明対象:</strong> 治療効果の治験に加えて、マイク判定が既存医療機器と「同等の精度がある」という性能試験が追加で必要。</li>
+                    <li><strong>薬事ハードル:</strong> 高（難易度大）</li>
+                </ul>
+            </div>
+        </div>
+        <p class="chart-summary"><strong>💡 結論:</strong> 薬事承認の「確実性」と「スピード」を優先するなら、ENDEAVORRIDEに倣い【ルートA（治療特化）】で進めるのが最も安全かつ近道です。</p>
+    </div>
+</div>
+
+<!-- Slide 8: Section_Title -->
+<div class="slide-container dark-bg" id="slide8">
+    <div class="section-title-layout">
+        <hr>
+        <h2>2. Mechanism & Evidence</h2>
+        <p>客観的指標による優越性の証明</p>
+    </div>
+</div>
+
+<!-- Slide 9: Text Layout (Replaced Image layout) -->
+<div class="slide-container" id="slide9">
+    <h2 class="slide-title">A3831試験のプロトコル概要</h2>
+    <div class="content-area">
+        <div class="bullet-list" style="margin: 0 auto;">
+            <h3 style="margin-bottom: 20px;">承認の決め手は「非盲検」かつ「通常治療への上乗せ」設計</h3>
+            <ul>
+                <li><strong>対象患者:</strong> 既存の心理社会的治療で効果不十分な6〜17歳のADHD患者。</li>
+                <li><strong>試験デザイン:</strong> 多施設共同・無作為化・非盲検・並行群間比較試験。</li>
+                <li><strong>群設定 (2:1):</strong> 本品群 (通常治療＋アプリ) vs 通常治療群。</li>
+                <li><strong>エンドポイント:</strong> 6週時点の「ADHD-RS-IV 不注意スコア」の変化量。</li>
+            </ul>
+            <p class="chart-summary" style="margin-top: 30px;"><strong>💡 長期評価の工夫:</strong> 6週間の「比較パート」終了後、希望者にさらに6週間アプリを使わせる「繰り返しパート」を実施し、長期の安全性やアドヒアランスのデータを補強しています。</p>
+        </div>
+    </div>
+</div>
+
+<!-- Slide 10: Bar_Chart_For_Comparisons -->
+<div class="slide-container dark-bg" id="slide10">
+    <h2 class="slide-title" style="border-color: #f3f0df; color: #f3f0df;">A3831試験の結果</h2>
+    <div class="content-area">
+        <p style="margin-bottom: 30px; text-align: center;">ADHD-RS不注意スコアのベースラインからの変化量</p>
+        <div class="chart-container">
+            <div class="bar">
+                <div class="label">通常治療群 (TAU)</div>
+                <div class="bar-inner">
+                    <div class="bar-fill" style="width: 33%; background-color: #cdd6e2; color: #005088;">-1.47</div>
+                </div>
+            </div>
+            <div class="bar">
+                <div class="label">本品上乗せ群</div>
+                <div class="bar-inner">
+                    <div class="bar-fill" style="width: 100%; background-color: #11caa0; color: #121212;">-4.44 (p < 0.0001)</div>
+                </div>
+            </div>
+        </div>
+        <p class="chart-summary" style="background-color: rgba(243, 240, 223, 0.1); border-color: #f3f0df; color: #f3f0df;">アプリのプラセボ設定は困難なため、「通常治療のみの群」と比較する非盲検比較試験が採用され、外部評価による統計学的優越性が証明されました。</p>
+    </div>
+</div>
+
+<!-- Slide 11: Styled_Bullet_Points -->
+<div class="slide-container" id="slide11">
+    <h2 class="slide-title">最短承認へ向けたプロトコル案</h2>
+    <div class="content-area">
+        <div class="bullet-list" style="margin: 0 auto;">
+            <h3 style="margin-bottom: 30px;">【推奨】治療特化ルート (ルートA) の場合</h3>
+            <ul>
+                <li><strong>アプリの定義:</strong> 口腔機能の「訓練・介入」ツールとして位置づける。</li>
+                <li><strong>事前の性能試験:</strong> 不要。音声認識精度は問われないため、開発コストと期間を大幅に削減可能。</li>
+                <li><strong>主要評価 (治験):</strong> 外部の既存医療機器 (健口くん等) や、歯科医師の評価で改善度を客観的に測定する。</li>
+                <li><strong>PMDA審査の焦点:</strong> 「このアプリで遊ぶと本当に良くなるか？」の治療効果のみ。</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<!-- Slide 12: Section_Title -->
+<div class="slide-container dark-bg" id="slide12">
+    <div class="section-title-layout">
+        <hr>
+        <h2>3. Safety & Guidelines</h2>
+        <p>リスク管理と学会連携による適正使用推進</p>
+    </div>
+</div>
+
+<!-- Slide 13: Tiled_Text_With_Icons -->
+<div class="slide-container" id="slide13">
+    <h2 class="slide-title">デジタル特有の課題クリアに向けて</h2>
+    <div class="content-area">
+        <div class="tiled-content">
+            <div class="tile">
+                <div class="icon"><i class="fa-solid fa-shield-halved"></i></div>
+                <h3>QMSとセキュリティ</h3>
+                <p>「JIS T 2304」に基づく安全設計と、患者の個人情報を守る厳格なサイバーセキュリティ対策を完了させます。</p>
+            </div>
+            <div class="tile">
+                <div class="icon"><i class="fa-solid fa-heart-pulse"></i></div>
+                <h3>特有の有害事象評価</h3>
+                <p>長時間の画面注視による眼精疲労や、過度な発声・舌運動による「顎関節への負担」などを潜在的リスクとして定義し検証します。</p>
+            </div>
+            <div class="tile">
+                <div class="icon"><i class="fa-solid fa-handshake-angle"></i></div>
+                <h3>関連学会との連携</h3>
+                <p>承認条件を見据え、関連学会と早期に連携。「適正使用指針」の策定や、医師向けの講習体制の構築を推進します。</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Slide 14: Timeline -->
+<div class="slide-container" id="slide14">
+    <h2 class="slide-title">治療特化ルートのフェーズ展開</h2>
+    <div class="content-area">
+        <div class="timeline-layout">
+            <div class="timeline-line"></div>
+            <div class="timeline-item">
+                <div class="content-wrapper">
+                    <h3>Phase 1: 戦略確定</h3>
+                    <p>「治療特化」で進める意思決定。対象患者と外部測定機器の選定。</p>
+                </div>
+            </div>
+            <div class="timeline-item">
+                <div class="content-wrapper">
+                    <h3>Phase 2: 治験準備</h3>
+                    <p>RCTプロトコルの策定、JIS T 2304等に基づくQMS構築、PMDA事前面談。</p>
+                </div>
+            </div>
+            <div class="timeline-item">
+                <div class="content-wrapper">
+                    <h3>Phase 3: 臨床試験</h3>
+                    <p>通常指導群との非盲検比較試験を実施。外部機器を用いて優越性を証明。</p>
+                </div>
+            </div>
+            <div class="timeline-item">
+                <div class="content-wrapper">
+                    <h3>Phase 4: 申請・承認</h3>
+                    <p>承認申請、適合性調査対応。関連学会と連携し「適正使用指針」を策定。</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Slide 15: Q&A -->
+<div class="slide-container dark-bg" id="slide15">
+    <div class="qa-layout">
+        <p class="subtitle" style="margin-bottom: 20px;">Next Steps</p>
+        <h2 style="font-size: 70px;">最短ルートで、ゲームの「楽しさ」を<br>医療の「エビデンス」へ。</h2>
+        <p style="font-size: 26px; margin-top: 30px;">まずは、治験のエンドポイントに用いる<br>「既存の客観的指標（機器）」を確定させましょう。</p>
+    </div>
+</div>
+
+</body>
+</html>
